@@ -36,7 +36,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Wild Mounts:** never applied for the bandits (R-5.5.3-H1 and its Q&A).
 - **Military Parade, Battle Honors:** do nothing when the bandits win; the cards burn them.
 - **Relic Hunter:** cannot put on the bottom a relic the defender held; only relics taken from sites.
-- **Encirclement:** counts only the attacker's board, not the whole force.
+- **Encirclement, Zealots:** in a game created before revision 4 (R-X.4) they count only the attacker's board, not the whole force (R-10.9), and an attacker's plan judges the defending force from the attacker's pawn, not the site Wild Allies or Captains names.
 - **Wrestlers:** the engine picks the sacrificed warband, and an ally's board is never offered.
 - **Martial Culture:** "may become a Citizen" is decided before the roll.
 - **Buried Giant to The Hidden Place:** one flipped secret pays both flips.
