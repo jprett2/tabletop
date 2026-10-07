@@ -27,8 +27,6 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Marriage:** counts as two Hearth advisers only in a Trade, not for the Conspiracy's match or Military Parade.
 - **Salad Days:** accepts an empty favor bank (R-7.1.3).
 - **Saddle Makers:** pays after the When Played power; its Q&A pays before.
-- **Deed Writer:** lets a Citizen and the Chancellor exchange sites, and refuses a Bandit Crown holder with no warbands; its two Q&As say otherwise.
-- **The Gathering:** asks from the acting player, not the Chancellor (its Q&A), and its exchange can move locked advisers (R-7.2.2).
 - **The Tribunal:** its exchange binds what changes hands at once, not promises of later actions (R-7.6.3-H1).
 - **Vow of Kinship:** Nomad-bank favor is always put into the People's Favor Wake, and Plague Engines and Dissent force it too; its Q&A makes it optional.
 - **Forced Labor:** not charged for Oracle's draw, and in a game created before revision 3 (R-X.4) not for an R-6.1 play either; both Q&As charge it.
