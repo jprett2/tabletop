@@ -130,7 +130,7 @@
         {:else if chosen}
             {#if travelWaysOpen}
                 <div class="mb-2">
-                    <TravelWays row={travelWaysOpen} />
+                    <TravelWays row={travelWaysOpen} upright={layout.upright} />
                 </div>
             {:else}
                 <!-- docs/user-interactions.md — `Back` unwinds local selection only. -->
