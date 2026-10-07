@@ -10,7 +10,6 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Vow of Silence, Vow of Renewal:** they also block a Campaign's banner target, which is a Seize (R-10.23), not the Recover the cards forbid.
 - **Vow of Silence:** its holder gains the secrets paid for the Darkest Secret, not the number placed, so Magician's Code's two are missed.
 - **Small Friends:** the modifiers at the pawn's own site stay usable, and those at Beast sites are opened without being declared.
-- **Secret Signal:** refused under Careless when trading for secrets; its Q&A allows it.
 - **Mushrooms with Augury:** the draw depends on the order the two are declared; the Q&A says two are drawn.
 - **Dragonskin Drum:** fires only on a Travel action, not on travel a power causes; its Q&A counts that travel.
 - **Giant Python:** counts the Oathkeeper's dice and ignores a Chancellor's ally holding Python; its Q&As say otherwise.
