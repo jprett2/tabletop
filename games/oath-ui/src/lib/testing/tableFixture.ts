@@ -6,6 +6,7 @@ import {
     CampaignTargetKind,
     Campaign,
     EndActPhase,
+    HydratedTravel,
     IMPERIAL_WARBANDS,
     LetPeek,
     LetPeekSubjectKind,
@@ -61,6 +62,7 @@ export type TableName =
     | 'prophets'
     | 'offTurn'
     | 'actPhase'
+    | 'leavingBuriedGiant'
     | 'warbandMoveAsked'
     | 'staleWarbandMoveAsked'
     | 'joinDefenceAsked'
@@ -364,6 +366,32 @@ function actPhaseTable(): PlayedTable {
             map: allMapSlots(),
             siteCards: fixtureSitesOnTheBoard(),
             denizensBySite: { [home]: [], [next]: ['denizen.hearth.wayside-inn'] }
+        }
+    )
+    openTurn(state, 'me')
+    state.activePlayerIds = ['me']
+    return tableOf(state)
+}
+
+/** R-11.12: this seat's Act Phase at the Buried Giant with a secret, so a destination has two ways to pay. */
+function leavingBuriedGiantTable(): PlayedTable {
+    const [home] = mapSlotsFor(Region.Cradle)
+    const state = testState(
+        [
+            testPlayer({ playerId: 'me', color: Color.Red, siteId: home, supply: 3, secrets: 1 }),
+            testPlayer({
+                playerId: 'ann',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: mapSlotId(Region.Provinces, 0)
+            })
+        ],
+        {
+            machineState: MachineState.ActPhase,
+            chancellorPlayerId: 'ann',
+            map: allMapSlots(),
+            siteCards: { ...fixtureSitesOnTheBoard(), [home]: 'site.buried-giant' },
+            denizensBySite: { [home]: [] }
         }
     )
     openTurn(state, 'me')
@@ -860,6 +888,7 @@ const TABLES: Record<TableName, () => PlayedTable> = {
     prophets: prophetsTable,
     offTurn: offTurnTable,
     actPhase: actPhaseTable,
+    leavingBuriedGiant: leavingBuriedGiantTable,
     warbandMoveAsked: warbandMoveAskedTable,
     staleWarbandMoveAsked: staleWarbandMoveAskedTable,
     joinDefenceAsked: joinDefenceAskedTable,
@@ -1067,6 +1096,14 @@ export function tableFacts(): {
             Object.entries(state.cardTokens).map(([cardId, tokens]) => [cardId, tokens.secrets])
         )
     }
+}
+
+/** R-5.6 — the destinations the engine accepts for the seat on screen's Travel, with no modifier declared. */
+export function legalTravelDestinations(): string[] {
+    const table = current()
+    const seatId = table.myPlayer?.id
+    assertExists(seatId, 'A seat is on the clock')
+    return HydratedTravel.legalDestinations(table.gameState, seatId, [])
 }
 
 export function defeatPicks(): { required: number; picked: number[]; blockedBecause?: string } {
