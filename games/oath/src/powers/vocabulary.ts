@@ -94,6 +94,24 @@ export function burnSecretsFromPlayer(
     return burned
 }
 
+/**
+ * "Burns all their secrets except their last", face up or down (Book Burning's Q&A); a faceup
+ * secret is kept before a facedown one.
+ */
+export function burnSecretsDownTo(
+    state: HydratedOathGameState,
+    playerId: string,
+    kept: number
+): number {
+    const player = state.getPlayerState(playerId)
+    const keptFaceup = Math.min(kept, player.secrets)
+    const keptFacedown = Math.min(kept - keptFaceup, player.secretsFacedown)
+    const burned = player.secrets - keptFaceup + player.secretsFacedown - keptFacedown
+    player.secrets = keptFaceup
+    player.secretsFacedown = keptFacedown
+    return burned
+}
+
 /** R-9.3 — unlimited. */
 export function placeSecretsOnDarkestSecret(state: HydratedOathGameState, count: number): number {
     state.banners[Banner.DarkestSecret].value += count

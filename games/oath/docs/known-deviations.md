@@ -16,6 +16,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Giant Python:** counts the Oathkeeper's dice and ignores a Chancellor's ally holding Python; its Q&As say otherwise.
 - **Rusting Ray:** "you hold the Darkest Secret" is read as its user alone, not the user's side (R-10.28-H1).
 - **Book Burning:** leaves facedown secrets; its Q&A burns them face up or down.
+- **Ancient Binding:** in a game created before revision 4 (R-X.4) it burns faceup secrets only, so every facedown secret stays; Book Burning's Q&A gives the same words the meaning "face up or down".
 - **Sticky Fire:** takes effect over Billowing Fog (R-9.2).
 - **Cursed Cauldron:** counts only the defeated side's kills, Hospital-saved warbands included; its Q&A also counts Bear Traps and skull kills.
 - **The Grand Scepter:** one received in an exchange is locked for the turn; its Q&A lets it be used.
