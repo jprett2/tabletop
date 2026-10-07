@@ -11,6 +11,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Vow of Silence:** its holder gains the secrets paid for the Darkest Secret, not the number placed, so Magician's Code's two are missed.
 - **Small Friends:** the modifiers at the pawn's own site stay usable, and those at Beast sites are opened without being declared.
 - **Secret Signal:** refused under Careless when trading for secrets; its Q&A allows it.
+- **Vow of Poverty with Careless:** in a game created before revision 4 (R-X.4) the Vow's holder gains Careless's favor on a Trade for secrets; the Vow's Q&A withholds it.
 - **Mushrooms with Augury:** the draw depends on the order the two are declared; the Q&A says two are drawn.
 - **Dragonskin Drum:** fires only on a Travel action, not on travel a power causes; its Q&A counts that travel.
 - **Giant Python:** counts the Oathkeeper's dice and ignores a Chancellor's ally holding Python; its Q&As say otherwise.

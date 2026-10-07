@@ -20,8 +20,15 @@ import { ongoingCampaign, required } from '../testing/required.js'
 import { buildAction } from '../testing/actions.js'
 import { FILLER, INN, TENTS } from '../testing/cards.js'
 import { IMPERIAL_WARBANDS } from '../model/warbandCounts.js'
+import { OathRevision } from './revision.js'
+import { type ModifierUse } from './modifiers.js'
+import { modifierUse, player } from '../testing/choices.js'
+import { testGame } from '../testing/game.js'
+import { RunMode, engine } from '../testing/engine.js'
 
 const RETURN = 'denizen.hearth.awaited-return'
+const POVERTY = 'denizen.beast.vow-of-poverty'
+const DISGUISE = 'denizen.arcane.master-of-disguise'
 
 function reliquary(uncovered: number[] = []) {
     return range(0, 4)
@@ -161,6 +168,63 @@ describe('Careless — Trade (R-6.6.2.a)', () => {
         const action = trade(s, TradeOption.ForSecrets)
         expect(s.getPlayerState('ruler').favor).toBe(1)
         expect(action.metadata?.modifierNotes).toEqual(['Careless: the bank had no favor to give'])
+    })
+})
+
+describe('Careless under Vow of Poverty — "You still don’t get the favor from Careless" (its Q&A)', () => {
+    const atRevision = OathRevision.CarelessUnderVowOfPoverty
+    const vowed = (oathRevision: number, advisers = [RETURN, POVERTY]) =>
+        board([CARELESS], { oathRevision }, {}, [INN], advisers)
+    const tradeForSecrets = (s: ReturnType<typeof board>, modifiers: ModifierUse[] = []) => {
+        const action = new HydratedTrade(
+            buildAction(Trade, { playerId: 'ruler', cardId: INN, option: TradeOption.ForSecrets, modifiers })
+        )
+        action.apply(s)
+        return action
+    }
+
+    it('the Vow’s holder trades for secrets and gains no favor from Careless', () => {
+        const s = vowed(atRevision)
+        const bank = s.favorBank[Suit.Hearth]
+        const action = tradeForSecrets(s)
+        expect(s.getPlayerState('ruler').favor).toBe(1)
+        expect(s.favorBank[Suit.Hearth]).toBe(bank)
+        expect(action.metadata?.favorGained).toBe(0)
+        expect(action.metadata?.modifierNotes).toEqual(['Careless: you cannot gain favor from Trade (Vow of Poverty)'])
+    })
+
+    it('a Chancellor without the Vow still gains it', () => {
+        const s = vowed(atRevision, [RETURN])
+        const action = tradeForSecrets(s)
+        expect(s.getPlayerState('ruler').favor).toBe(2)
+        expect(action.metadata?.modifierNotes).toEqual(['Careless: gained 1 favor'])
+    })
+
+    it('Master of Disguise trades with the other player’s advisers, so the Vow no longer binds (its Q&A)', () => {
+        const s = vowed(atRevision, [RETURN, POVERTY, DISGUISE])
+        tradeForSecrets(s, [modifierUse(DISGUISE, [player('other')])])
+        expect(s.getPlayerState('ruler').favor).toBe(2)
+    })
+
+    it('R-X.4 — in a game created before the revision, the Vow’s holder still gains it', () => {
+        const s = vowed(OathRevision.PlanCostsAndSearchPlays)
+        const action = tradeForSecrets(s)
+        expect(s.getPlayerState('ruler').favor).toBe(2)
+        expect(action.metadata?.modifierNotes).toEqual(['Careless: gained 1 favor'])
+    })
+
+    it('R-X.4 — each revision’s Trade for secrets replays unchanged', () => {
+        for (const [revision, favor] of [[OathRevision.PlanCostsAndSearchPlays, 2], [atRevision, 1]]) {
+            const before = vowed(revision).dehydrate()
+            const game = testGame(['ruler', 'other'])
+            const trade = buildAction(Trade, { playerId: 'ruler', cardId: INN, option: TradeOption.ForSecrets })
+            const recorded = engine.runNext(trade, structuredClone(before), game)
+            expect(recorded.updatedState.players.find((p) => p.playerId === 'ruler')?.favor).toBe(favor)
+
+            let replayed = structuredClone(before)
+            for (const action of recorded.processedActions) replayed = engine.run(structuredClone(action), replayed, game, RunMode.Single).updatedState
+            expect(replayed).toEqual(recorded.updatedState)
+        }
     })
 })
 
