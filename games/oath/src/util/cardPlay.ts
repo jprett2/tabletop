@@ -26,6 +26,7 @@ import {
     effectiveAdviserLimit
 } from './continuous.js'
 import {
+    advisersOfSuit,
     afterCardPlayedPersistent,
     reasonPersistentForbidsFacedownAdviser,
     reasonPersistentForbidsFaceupVision,
@@ -42,7 +43,6 @@ export function conspiracyMatchIsValid(
     playerId: string,
     targetPlayerId: string
 ): boolean {
-    const player = state.getPlayerState(playerId)
     const target = state.getPlayerState(targetPlayerId)
 
     const targetSuits = new Set(
@@ -52,10 +52,10 @@ export function conspiracyMatchIsValid(
             .filter((suit) => suit !== undefined)
     )
 
-    const matching = player.faceupAdviserIds().filter((cardId) => {
-        const suit = suitOf(cardId)
-        return suit !== undefined && targetSuits.has(suit)
-    }).length
+    const matching = [...targetSuits].reduce(
+        (count, suit) => count + advisersOfSuit(state, playerId, suit),
+        0
+    )
 
     return matching >= 2
 }

@@ -25,6 +25,8 @@ import {
     hasFaceupAdviserOfSuit
 } from './vocabulary.js'
 import { defendingPlayerIds } from '../util/battlePlans.js'
+import { persistentMatchingAdvisers } from '../util/persistent.js'
+import { OathRevision, isAtLeastOathRevision } from '../util/revision.js'
 
 const side = (ctx: BattlePlanContext): BattlePlanSide => ctx.campaign.side
 
@@ -470,6 +472,14 @@ registerBattlePlan(
                     for (const cardId of ctx.state.getPlayerState(id).faceupAdviserIds()) {
                         const suit = suitOf(cardId)
                         if (suit) gained += gainFavorFromBank(ctx.state, ctx.playerId, suit, 1)
+                    }
+                    // Its Q&A pays one favor per adviser of a suit, and Marriage counts as two (R-X.4: from revision 4).
+                    if (!isAtLeastOathRevision(ctx.state, OathRevision.ExchangesAndChoiceChecks))
+                        continue
+                    for (const suit of Object.values(Suit)) {
+                        const counted = persistentMatchingAdvisers(ctx.state, id, suit)
+                        if (counted > 0)
+                            gained += gainFavorFromBank(ctx.state, ctx.playerId, suit, counted)
                     }
                 }
                 return `Military Parade: gained ${gained} favor from the banks matching your enemy's advisers`
