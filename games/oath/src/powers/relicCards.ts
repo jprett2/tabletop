@@ -1,4 +1,5 @@
-import { PowerTiming, powerIndexOf } from '../data/cardPowers.js'
+import { assertExists } from '@tabletop/common'
+import { BattlePlanSide, PowerTiming, powerIndexOf } from '../data/cardPowers.js'
 import { suitOf } from '../data/cardRegistry.js'
 import { Banner } from '../model/oathEnums.js'
 import { PowerQuestionKind } from '../model/question.js'
@@ -21,7 +22,8 @@ import {
     registerEffect,
     registerModifier,
     registerPersistent,
-    chosen
+    chosen,
+    type PlayerPlanContext
 } from './registry.js'
 import {
     gainWarbandsToBoard,
@@ -30,7 +32,7 @@ import {
     hasFaceupAdviserOfSuit
 } from './vocabulary.js'
 import { cardChoicesAtYourSite } from './choiceDomains.js'
-import { opposingLeadId } from '../util/battlePlans.js'
+import { ignoresKillAll, opposingLeadId } from '../util/battlePlans.js'
 import { releaseRelic } from '../util/relics.js'
 import { reasonPersistentForbidsGivingSecrets } from '../util/persistent.js'
 import { reasonCannotMoveCardTo } from '../util/locked.js'
@@ -325,6 +327,15 @@ registerBattlePlan(CURSED_CAULDRON, powerIndexOf(CURSED_CAULDRON, PowerTiming.Ba
 
 // "If you're victorious, you may kill all the warbands in your enemy's force. If you do, you must give them [favor] if able." Either side.
 const STICKY_FIRE = 'relic.sticky-fire'
+function stickyFireIgnored(ctx: PlayerPlanContext): boolean {
+    const campaign = ctx.state.campaign
+    assertExists(campaign, 'an outcome hook runs inside a Campaign')
+    const enemySide =
+        ctx.campaign.side === BattlePlanSide.Attacker
+            ? BattlePlanSide.Defender
+            : BattlePlanSide.Attacker
+    return ignoresKillAll(ctx.state, campaign, enemySide)
+}
 registerBattlePlan(STICKY_FIRE, powerIndexOf(STICKY_FIRE, PowerTiming.BattlePlan), {
     hooks: {
         killsEnemyForce: true,
@@ -333,9 +344,13 @@ registerBattlePlan(STICKY_FIRE, powerIndexOf(STICKY_FIRE, PowerTiming.BattlePlan
             const campaign = ctx.campaign
             const enemyId = opposingLeadId(campaign.parties, campaign.side)
             if (!enemyId) return 'Sticky Fire: the bandits have nobody to pay'
+            // Its Q&A — the favor is given even when the enemy ignores the kill.
             const given = Math.min(1, usableFavor(ctx.state, ctx.playerId))
             giveFavor(ctx.state, ctx.playerId, enemyId, given)
-            return `Sticky Fire: the enemy force was killed entirely; gave ${enemyId} ${given} favor`
+            const killed = stickyFireIgnored(ctx)
+                ? 'its kill was ignored'
+                : 'the enemy force was killed entirely'
+            return `Sticky Fire: ${killed}; gave ${enemyId} ${given} favor`
         }
     }
 })
