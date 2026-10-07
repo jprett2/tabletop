@@ -12,6 +12,7 @@ import {
     MachineState,
     MoveWarbands,
     OathRevision,
+    OfferCitizenship,
     OathType,
     PlayerStatus,
     PowerQuestionKind,
@@ -27,6 +28,8 @@ import {
     allMapSlots,
     mapSlotId,
     mapSlotsFor,
+    reliquarySlotId,
+    type CitizenshipTransfer,
     type PowerQuestion,
     type WarbandCounts,
     type WarbandGroup
@@ -84,6 +87,9 @@ export type TableName =
     | 'cardChangesSearch'
     | 'cardsOpenTravel'
     | 'majorEvents'
+    | 'citizenshipShort'
+    | 'citizenshipNone'
+    | 'citizenshipEnough'
 
 const PROPHET_ADVISERS = [
     'denizen.order.messenger',
@@ -854,6 +860,66 @@ function travelCardsTable(): PlayedTable {
     return tableOf(state)
 }
 
+/**
+ * R-6.6.1, R-6.6.2, R-9.3 — the Chancellor offers the Exile Citizenship for 2 favor; the Exile has
+ * three warbands on their board and two at Fertile Valley, and the Empire this many to replace them.
+ */
+function citizenshipOfferedTable(imperial: number, fromExile?: CitizenshipTransfer): PlayedTable {
+    const valley = mapSlotId(Region.Cradle, 1)
+    const state = testState(
+        [
+            testPlayer({
+                playerId: 'ann',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: mapSlotId(Region.Provinces, 0),
+                favor: 4,
+                relicIds: ['relic.grand-scepter'],
+                warbandsInPersonalBank: { [IMPERIAL_WARBANDS]: imperial }
+            }),
+            testPlayer({
+                playerId: 'me',
+                color: Color.Red,
+                siteId: valley,
+                favor: 2,
+                secrets: 2,
+                warbandsOnBoard: { me: 3 },
+                warbandsInPersonalBank: { me: 9 }
+            })
+        ],
+        {
+            machineState: MachineState.ActPhase,
+            chancellorPlayerId: 'ann',
+            map: allMapSlots(),
+            siteCards: { ...fixtureSitesOnTheBoard(), [valley]: 'site.fertile-valley' },
+            denizensBySite: { [valley]: [] },
+            warbandsBySite: { [valley]: { me: 2 } }
+        }
+    )
+    state.vault = testVaultWithRelics(
+        Object.fromEntries(
+            [
+                'relic.book-of-records',
+                'relic.brass-horse',
+                'relic.cracked-horn',
+                'relic.grand-mask'
+            ].map((relicId, index) => [reliquarySlotId(index), relicId])
+        )
+    )
+    openTurn(state, 'ann')
+    state.activePlayerIds = ['ann']
+    const table = tableOf(state)
+    return played(table, [
+        createAction(OfferCitizenship, {
+            ...envelope(table),
+            playerId: 'ann',
+            exilePlayerId: 'me',
+            reliquarySlotId: reliquarySlotId(0),
+            terms: { fromScepterHolder: { favor: 2 }, fromExile }
+        })
+    ])
+}
+
 const TABLES: Record<TableName, () => PlayedTable> = {
     setup: setupTable,
     searching: searchingTable,
@@ -882,7 +948,10 @@ const TABLES: Record<TableName, () => PlayedTable> = {
     cardOpensSearch: () => mushroomsTable(1),
     cardChangesSearch: () => mushroomsTable(2),
     cardsOpenTravel: travelCardsTable,
-    majorEvents: majorEventsTable
+    majorEvents: majorEventsTable,
+    citizenshipShort: () => citizenshipOfferedTable(3, { secrets: 1 }),
+    citizenshipNone: () => citizenshipOfferedTable(0, { secrets: 1 }),
+    citizenshipEnough: () => citizenshipOfferedTable(5)
 }
 
 let session: OathGameSession | undefined
