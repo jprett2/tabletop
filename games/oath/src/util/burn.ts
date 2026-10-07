@@ -11,7 +11,7 @@ export function burnedFavorTaker(state: HydratedOathGameState): string | undefin
     return undefined
 }
 
-/** R-10.4 — every burn routes through here so Vow of Renewal can claim it. */
+/** R-10.4 — every burn a player makes routes through here so Vow of Renewal can claim it. */
 export function burnFavor(state: HydratedOathGameState, count: number): string | undefined {
     if (count <= 0) return undefined
     const taker = burnedFavorTaker(state)
@@ -21,4 +21,12 @@ export function burnFavor(state: HydratedOathGameState, count: number): string |
     }
     state.favorSupply += count
     return undefined
+}
+
+/**
+ * R-10.4-H1 — a burn no player performs goes to the shared bank: Vow of Renewal's "whenever any
+ * player burns" does not take it.
+ */
+export function burnFavorByNoPlayer(state: HydratedOathGameState, count: number): void {
+    state.favorSupply += count
 }

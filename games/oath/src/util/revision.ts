@@ -4,10 +4,11 @@ import type { OathGameState } from '../model/gameState.js'
 export enum OathRevision {
     TurnFlow = 1,
     CostsAndFacedownModifiers = 2,
-    PlanCostsAndSearchPlays = 3
+    PlanCostsAndSearchPlays = 3,
+    SeizeBurnNotIntercepted = 4
 }
 
-export const CURRENT_OATH_REVISION = OathRevision.PlanCostsAndSearchPlays
+export const CURRENT_OATH_REVISION = OathRevision.SeizeBurnNotIntercepted
 
 export function isAtLeastOathRevision(
     state: Pick<OathGameState, 'oathRevision'>,

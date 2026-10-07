@@ -8,6 +8,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 
 - **Battle-plan costs:** in a game created before revision 3 (R-X.4) each plan's cost is checked alone against the untouched holding, so a side can declare plans it cannot pay in full: the payment throws, or Gleaming Armor's added secret leaves its payer below zero.
 - **Vow of Silence, Vow of Renewal:** they also block a Campaign's banner target, which is a Seize (R-10.23), not the Recover the cards forbid.
+- **Vow of Renewal:** in a game created before revision 4 (R-X.4) its holder takes the two favor a Seize burns off the People's Favor; R-10.4-H1 burns them to the shared bank.
 - **Vow of Silence:** its holder gains the secrets paid for the Darkest Secret, not the number placed, so Magician's Code's two are missed.
 - **Small Friends:** the modifiers at the pawn's own site stay usable, and those at Beast sites are opened without being declared.
 - **Secret Signal:** refused under Careless when trading for secrets; its Q&A allows it.
