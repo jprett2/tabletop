@@ -14,6 +14,7 @@ import { ruledFaceupCardIds, siteHolding } from '../util/access.js'
 import { registerBattlePlan, type BattlePlanContext } from './registry.js'
 import { PowerChoiceKind, optional } from '../util/powerChoice.js'
 import {
+    burnSecretsDownToOne,
     burnSecretsFromPlayer,
     denizensOnMap,
     gainFavorFromBank,
@@ -25,6 +26,7 @@ import {
     hasFaceupAdviserOfSuit
 } from './vocabulary.js'
 import { defendingPlayerIds } from '../util/battlePlans.js'
+import { OathRevision, isAtLeastOathRevision } from '../util/revision.js'
 
 const side = (ctx: BattlePlanContext): BattlePlanSide => ctx.campaign.side
 
@@ -236,11 +238,16 @@ registerBattlePlan(
                 const defenderId = ctx.campaign.parties.defenderPlayerId
                 if (!victorious || !pawnTargeted(ctx) || !defenderId) return undefined
                 const them = ctx.state.getPlayerState(defenderId)
-                const burned = burnSecretsFromPlayer(
+                const burned = isAtLeastOathRevision(
                     ctx.state,
-                    defenderId,
-                    Math.max(0, them.secrets - Math.max(0, 1 - them.secretsFacedown))
+                    OathRevision.CampaignTargetsAndBurns
                 )
+                    ? burnSecretsDownToOne(ctx.state, defenderId)
+                    : burnSecretsFromPlayer(
+                          ctx.state,
+                          defenderId,
+                          Math.max(0, them.secrets - Math.max(0, 1 - them.secretsFacedown))
+                      )
                 return `Book Burning: ${defenderId} burned ${burned} secrets`
             }
         }
