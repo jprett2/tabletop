@@ -236,11 +236,11 @@ export interface PersistentHooks {
         parties: CampaignParties,
         side: BattlePlanSide
     ) => string | undefined
-    /** Giant Python */
+    /** Giant Python — the dice the targets add; before revision 4, the whole pool (R-X.4). */
     forbidsTargets?: (
         ctx: PersistentContext,
         parties: CampaignParties,
-        defensePool: number
+        targetDice: number
     ) => string | undefined
     /** Gleaming Armor, Insect Swarm */
     battlePlanExtraCost?: (

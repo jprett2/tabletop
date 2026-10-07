@@ -13,7 +13,6 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Secret Signal:** refused under Careless when trading for secrets; its Q&A allows it.
 - **Mushrooms with Augury:** the draw depends on the order the two are declared; the Q&A says two are drawn.
 - **Dragonskin Drum:** fires only on a Travel action, not on travel a power causes; its Q&A counts that travel.
-- **Giant Python:** counts the Oathkeeper's dice and ignores a Chancellor's ally holding Python; its Q&As say otherwise.
 - **Rusting Ray:** "you hold the Darkest Secret" is read as its user alone, not the user's side (R-10.28-H1).
 - **Book Burning:** leaves facedown secrets; its Q&A burns them face up or down.
 - **Sticky Fire:** takes effect over Billowing Fog (R-9.2).
