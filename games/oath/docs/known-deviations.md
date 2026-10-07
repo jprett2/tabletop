@@ -14,7 +14,6 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Mushrooms with Augury:** the draw depends on the order the two are declared; the Q&A says two are drawn.
 - **Dragonskin Drum:** fires only on a Travel action, not on travel a power causes; its Q&A counts that travel.
 - **Giant Python:** counts the Oathkeeper's dice and ignores a Chancellor's ally holding Python; its Q&As say otherwise.
-- **Rusting Ray:** "you hold the Darkest Secret" is read as its user alone, not the user's side (R-10.28-H1).
 - **Book Burning:** leaves facedown secrets; its Q&A burns them face up or down.
 - **Sticky Fire:** takes effect over Billowing Fog (R-9.2).
 - **Cursed Cauldron:** counts only the defeated side's kills, Hospital-saved warbands included; its Q&A also counts Bear Traps and skull kills.
@@ -41,7 +40,6 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Martial Culture:** "may become a Citizen" is decided before the roll.
 - **Buried Giant to The Hidden Place:** one flipped secret pays both flips.
 - **Decadent:** its +1 is added after "spend no Supply", so Tents, A Fast Steed, Special Envoy, Portal and a Buried Giant flip still cost 1 (R-7.6.2).
-- **Great Crusade:** counts only its user's own cards, not the side's (R-10.28-H1).
 - **Master of Disguise:** the engine accepts the other player's Trade modifiers, but the modifier picker does not list them.
 - **Warning Signals:** warbands moved from the board all go to one site per use.
 - **Toll Roads:** never asked or paid on travel a power causes (a banish, the Whistle, Palanquin's carried player, Brass Horse).

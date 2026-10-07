@@ -27,7 +27,7 @@ A ruling marked *provisional* is a question put to the publisher's community; it
 - **R-10.2-H1** *(provisional)*: simultaneous triggers resolve clockwise from the acting player.
 - **R-10.5-H1** *(provisional)*: favor and secrets on the denizens Pilgrimage moves return as on a discard, favor to the matching bank and secrets to the acting player.
 - **R-10.11-H1:** a banner given, by Citizenship terms or Ancient Pact, changes hands and nothing else happens: R-2.5.3's penalty is for a banner taken, per the banners' Q&A.
-- **R-10.28-H1:** in a battle plan, "you" covers the user's side: an Imperial user counts what any Imperial player holds, and Code of Honor bars the rest of the side.
+- **R-10.28-H1:** "you" is the user alone, as R-10.28 defines it: Imperial players share the sites the Empire rules and the cards there (R-6.6.3), and nothing else they hold. Three cards follow their own Q&A instead: Fire Talkers counts the Darkest Secret held by any Imperial player when its user is Imperial, and Code of Honor and Specialist each bind the whole side.
 - **R-11.2-H1:** a relic taken through a Homeland site is taken as a Recover takes it, so "after a player takes relics" powers fire.
 - **R-X.1:** every choice arrives as explicit input from the player it belongs to: another player's permission, a Citizen's joining a defence and a defeated defending side's losses are each that player's own answer to a request; the engine never infers one.
 - **R-X.3:** undo stops at an action that revealed information: (a) it advanced the random stream, (b) it moved a card into or out of the vault, or (c) it showed a player a card they had not seen (a faceup play or flip, a Dream Thief swap, a facedown adviser exchanged).
