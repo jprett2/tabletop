@@ -1,6 +1,7 @@
 <script lang="ts">
     import TokenText from '$lib/components/TokenText.svelte'
     import CountPicker from '$lib/components/CountPicker.svelte'
+    import WaitingOn from '$lib/components/WaitingOn.svelte'
     import { range } from '@tabletop/common'
     import { siteName, transferText } from '$lib/model/names.js'
     import { ConsentRequestKind, forceTotal, type WarbandGroup } from '@tabletop/oath'
@@ -16,7 +17,6 @@
     let busy = $derived(gameSession.busy)
 
     let pending = $derived(gameState.pendingConsent)
-    let isCitizenshipOffer = $derived(pending?.request.kind === ConsentRequestKind.CitizenshipOffer)
     let iAmAsked = $derived(!!me && pending?.askedPlayerId === me.id)
     let asked = $derived(gameSession.consentAsked)
     let grantBlockedBecause = $derived(gameSession.consentGrantBlockedBecause)
@@ -50,12 +50,7 @@
     {#if !pending}
         <p class="text-sm text-oath-text-muted">Nothing is waiting on an answer.</p>
     {:else if !iAmAsked}
-        <p class="text-sm text-oath-text-muted">
-            Waiting on {gameSession.getPlayerName(pending.askedPlayerId)} to answer
-            {gameSession.getPlayerName(pending.askingPlayerId)}{isCitizenshipOffer
-                ? '’s offer of Citizenship'
-                : ''}.
-        </p>
+        <WaitingOn />
     {:else if asked}
         <p class="text-sm mb-2">
             {consentQuestion(gameState, asked, (id) => gameSession.getPlayerName(id))}
