@@ -8,6 +8,7 @@ import { PowerQuestionKind, QuestionAnswer } from '../model/question.js'
 import { Region } from '../model/oathEnums.js'
 import { RelicToDeckBottom } from '../model/powerOutcome.js'
 import { PileDeposit } from '../model/hidden.js'
+import { PowerMoveToll } from '../model/powerMoveToll.js'
 import { currentQuestion, resumeStateAfterQuestions } from '../util/questions.js'
 import { applyAnswer, reasonCannotAnswer } from '../util/questionAnswers.js'
 import { commitHiddenOutputs } from '../util/hiddenInputs.js'
@@ -30,7 +31,9 @@ export const AnswerQuestionMetadata = Type.Object({
     discardPileRegion: Type.Optional(Type.Enum(Region)),
     pileDeposits: Type.Optional(Type.Array(PileDeposit, { maxItems: 8 })),
     // Skeleton Key
-    relicTakenFromSlotId: Type.Optional(Type.String())
+    relicTakenFromSlotId: Type.Optional(Type.String()),
+    // Toll Roads on a power's move
+    tollMove: Type.Optional(PowerMoveToll)
 })
 
 export type AnswerQuestion = Type.Static<typeof AnswerQuestion>
@@ -92,7 +95,8 @@ export class HydratedAnswerQuestion
             discardedCardIds: outcome.discardedCardIds,
             discardPileRegion: outcome.discardPileRegion,
             pileDeposits: outcome.pileDeposits,
-            relicTakenFromSlotId: outcome.relicTakenFromSlotId
+            relicTakenFromSlotId: outcome.relicTakenFromSlotId,
+            tollMove: outcome.tollMove
         }
         commitHiddenOutputs(this, state, witnesses)
     }

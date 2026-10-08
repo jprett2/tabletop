@@ -31,7 +31,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **The Gathering:** asks from the acting player, not the Chancellor (its Q&A), and its exchange can move locked advisers (R-7.2.2).
 - **The Tribunal:** its exchange binds what changes hands at once, not promises of later actions (R-7.6.3-H1).
 - **Vow of Kinship:** Nomad-bank favor is always put into the People's Favor Wake, and Plague Engines and Dissent force it too; its Q&A makes it optional.
-- **Forced Labor:** not charged for Oracle's draw, and in a game created before revision 3 (R-X.4) not for an R-6.1 play either; both Q&As charge it.
+- **Forced Labor:** in a game created before revision 4 (R-X.4) not charged for Oracle's draw, and before revision 3 not for an R-6.1 play either; both Q&As charge it.
 - **R-6.1:** in a game created before revision 2 (R-X.4), a facedown adviser's play takes no Search modifier, so Book of Records' holder gains favor on a site play and New Growth, Crop Rotation, Wild Cry, Bracken and Cracked Horn cannot be used on it. From revision 2 the engine applies them, but the table offers no way to declare an optional one on that play; Book of Records, being mandatory, applies by itself.
 - **Wild Mounts:** never applied for the bandits (R-5.5.3-H1 and its Q&A).
 - **Military Parade, Battle Honors:** do nothing when the bandits win; the cards burn them.
@@ -44,7 +44,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Great Crusade:** counts only its user's own cards, not the side's (R-10.28-H1).
 - **Master of Disguise:** the engine accepts the other player's Trade modifiers, but the modifier picker does not list them.
 - **Warning Signals:** warbands moved from the board all go to one site per use.
-- **Toll Roads:** never asked or paid on travel a power causes (a banish, the Whistle, Palanquin's carried player, Brass Horse).
+- **Toll Roads:** in a game created before revision 4 (R-X.4), never asked or paid on travel a power causes (a banish, the Whistle, Palanquin's carried player, a Shrouded Wood ruler's pick, Brass Horse). From revision 4, a pawn banished from a Shrouded Wood has its favor burned before the ruler picks the site (R-5.5.7.III travels first), so a toll asked after the pick comes out of what the burn left; and Palanquin's user has already moved when its carried player, leaving a Shrouded Wood, refuses the toll.
 
 ## Rules
 

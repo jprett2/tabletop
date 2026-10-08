@@ -10,6 +10,7 @@ import {
     type QuestionOf
 } from '../model/question.js'
 import type { PileDeposit } from '../model/hidden.js'
+import type { PowerMoveToll } from '../model/powerMoveToll.js'
 import type { HydratedOathPlayerState } from '../model/playerState.js'
 import { settleSkullKills } from './campaignRoll.js'
 import { askQuestion, currentQuestion, turnOrderFrom } from './questions.js'
@@ -44,6 +45,8 @@ export interface AnswerOutcome {
     relicTakenFromSlotId?: string
     /** R-X.3(c) */
     disclosed?: boolean
+    /** Toll Roads on a power's move. */
+    tollMove?: PowerMoveToll
 }
 
 function rulesOf<K extends PowerQuestionKind>(kind: K): QuestionRules<K> {

@@ -40,6 +40,14 @@ import {
 import { GRAND_SCEPTER_ID } from '../data/relics.js'
 import { returnWarbandsOnCardToBanks } from './force.js'
 import { reasonCannotTravelByPower, travelByPower } from './powerTravel.js'
+import {
+    askPowerMoveToll,
+    canPayPowerMoveToll,
+    powerMoveToll,
+    settlePowerMoveToll
+} from './powerMoveTolls.js'
+import { payToll } from './tolls.js'
+import { PowerMoveKind } from '../model/powerMoveToll.js'
 
 function listOf(id: string | undefined): string[] {
     return id === undefined ? [] : [id]
@@ -281,9 +289,20 @@ export const QUESTION_RULES: { [K in PowerQuestionKind]: QuestionRules<K> } = {
                 ? undefined
                 : `${matched.answer.siteId} is not a site ${travelerPlayerId} can be sent to`
         },
-        apply: (state, _playerId, matched) => {
+        apply: (state, playerId, matched, _asked, askingPlayerId) => {
             const { travelerPlayerId } = matched.question
             const siteId = matched.answer.siteId
+            const toll = powerMoveToll(state, travelerPlayerId, siteId)
+            if (toll) {
+                const move = {
+                    move: PowerMoveKind.ShroudedWood,
+                    moverPlayerId: playerId,
+                    movedPlayerId: travelerPlayerId,
+                    toSiteId: siteId
+                }
+                const tollMove = askPowerMoveToll(state, move, toll, askingPlayerId, true)
+                return { summary: `chose ${siteId} for ${travelerPlayerId}`, tollMove }
+            }
             const { notes, revealed } = travelByPower(state, travelerPlayerId, siteId)
             const summary = `sent ${travelerPlayerId} to ${siteId}${notes.length ? ` (${notes.join('; ')})` : ''}`
             return revealed ? { summary, disclosed: true } : summary
@@ -295,12 +314,21 @@ export const QUESTION_RULES: { [K in PowerQuestionKind]: QuestionRules<K> } = {
             if (!matched.question.siteIds.includes(siteId)) {
                 return `${siteId} is not one of the sites the Brass Horse named`
             }
+            if (!canPayPowerMoveToll(state, playerId, siteId)) {
+                return `travelling to ${siteId} takes a favor for its toll and you have none`
+            }
             return reasonCannotTravelByPower(state, playerId, siteId)
         },
         apply: (state, playerId, matched) => {
             const siteId = matched.answer.siteId
+            // Toll Roads — Brass Horse's user travels, so they pay as they go.
+            const toll = powerMoveToll(state, playerId, siteId)
+            if (toll) payToll(state, playerId, toll)
             const { notes } = travelByPower(state, playerId, siteId)
-            return `travelled to ${siteId} for no Supply${notes.length ? ` (${notes.join('; ')})` : ''}`
+            const after = notes.length ? ` (${notes.join('; ')})` : ''
+            if (!toll) return `travelled to ${siteId} for no Supply${after}`
+            const paying = toll.payeeId ? `paying ${toll.payeeId}` : 'burning'
+            return `travelled to the ${siteId} for no Supply, ${paying} 1 favor (${toll.cardId})${after}`
         }
     },
     [PowerQuestionKind.RerollDice]: {
@@ -456,6 +484,22 @@ export const QUESTION_RULES: { [K in PowerQuestionKind]: QuestionRules<K> } = {
                 summary: `discarded ${ordered.join(', ')} in that order`,
                 pileDeposits
             }
+        }
+    },
+    [PowerQuestionKind.PayTravelToll]: {
+        reasonCannotAnswer: (state, playerId, matched) => {
+            const usable = usableFavor(state, playerId)
+            return matched.answer.pay && usable < 1
+                ? `paying takes 1 favor and you have ${usable}`
+                : undefined
+        },
+        apply: (state, _playerId, matched) => {
+            const { question } = matched
+            const tollMove = settlePowerMoveToll(state, question, matched.answer.pay)
+            const summary = matched.answer.pay
+                ? `${question.payeeId ? `paid ${question.payeeId}` : 'burned'} 1 favor and went to ${question.siteId}`
+                : `refused ${question.cardId} and stayed at ${question.fromSiteId}`
+            return { summary, tollMove }
         }
     },
     [PowerQuestionKind.OrderDrawnCards]: {
