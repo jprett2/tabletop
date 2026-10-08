@@ -23,6 +23,10 @@ import {
     Suit,
     TOP_CRADLE_SLOT,
     Travel,
+    UseActionPower,
+    PowerChoiceKind,
+    PowerTiming,
+    powerIndexOf,
     WarbandMoveKind,
     allMapSlots,
     mapSlotId,
@@ -84,6 +88,9 @@ export type TableName =
     | 'cardChangesSearch'
     | 'cardsOpenTravel'
     | 'majorEvents'
+    | 'tollAsked'
+    | 'oracleToll'
+    | 'oracleNoFavor'
 
 const PROPHET_ADVISERS = [
     'denizen.order.messenger',
@@ -854,6 +861,88 @@ function travelCardsTable(): PlayedTable {
     return tableOf(state)
 }
 
+const GREAT_SLUM = mapSlotId(Region.Provinces, 1)
+const RIVER = mapSlotId(Region.Provinces, 2)
+const WHISTLE = 'relic.whistle'
+const ORACLE = 'denizen.nomad.oracle'
+
+/**
+ * Toll Roads on a power's move: Cole (Exile) rules the Great Slum, which holds Toll Roads, Forced
+ * Labor and Oracle; Jacob (Chancellor) stands at the River.
+ */
+function tollTable(cole: Record<string, unknown>, jacob: Record<string, unknown>, turn: string) {
+    const state = testState(
+        [
+            testPlayer({
+                playerId: 'Jacob',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: RIVER,
+                supply: 3,
+                favor: 4,
+                secrets: 1,
+                warbandsOnBoard: { [IMPERIAL_WARBANDS]: 6 },
+                ...jacob
+            }),
+            testPlayer({
+                playerId: 'Cole',
+                color: Color.Red,
+                siteId: GREAT_SLUM,
+                supply: 3,
+                favor: 3,
+                secrets: 2,
+                warbandsOnBoard: { Cole: 9 },
+                ...cole
+            })
+        ],
+        {
+            machineState: MachineState.ActPhase,
+            chancellorPlayerId: 'Jacob',
+            oathkeeperPlayerId: 'Cole',
+            oathRevision: OathRevision.TollsOnPowers,
+            map: allMapSlots(),
+            siteCards: {
+                ...fixtureSitesOnTheBoard(),
+                [GREAT_SLUM]: 'site.great-slums',
+                [RIVER]: 'site.river'
+            },
+            denizensBySite: {
+                [GREAT_SLUM]: ['denizen.order.toll-roads', 'denizen.order.forced-labor', ORACLE],
+                [RIVER]: []
+            },
+            warbandsBySite: { [GREAT_SLUM]: { Cole: 2 } }
+        }
+    )
+    openTurn(state, turn)
+    state.activePlayerIds = [turn]
+    state.vault = testVaultWithRelics({})
+    return state
+}
+
+/** Cole has used the Whistle on Jacob, who is asked to pay Toll Roads or refuse. */
+function tollAskedTable(): PlayedTable {
+    const table = tableOf(tollTable({ relicIds: [WHISTLE] }, {}, 'Cole'))
+    return played(table, [
+        createAction(UseActionPower, {
+            ...envelope(table),
+            playerId: 'Cole',
+            cardId: WHISTLE,
+            powerIndex: powerIndexOf(WHISTLE, PowerTiming.Action),
+            choices: [{ kind: PowerChoiceKind.Player, playerId: 'Jacob' }]
+        })
+    ])
+}
+
+/** Jacob's Act Phase at the Great Slum: Oracle's draw owes Forced Labor's toll to Cole. */
+function oracleTable(favor: number): PlayedTable {
+    const state = tollTable(
+        { siteId: RIVER },
+        { siteId: GREAT_SLUM, favor, secrets: 2, relicIds: favor > 0 ? [] : [WHISTLE] },
+        'Jacob'
+    )
+    return tableOf(state)
+}
+
 const TABLES: Record<TableName, () => PlayedTable> = {
     setup: setupTable,
     searching: searchingTable,
@@ -882,7 +971,10 @@ const TABLES: Record<TableName, () => PlayedTable> = {
     cardOpensSearch: () => mushroomsTable(1),
     cardChangesSearch: () => mushroomsTable(2),
     cardsOpenTravel: travelCardsTable,
-    majorEvents: majorEventsTable
+    majorEvents: majorEventsTable,
+    tollAsked: tollAskedTable,
+    oracleToll: () => oracleTable(4),
+    oracleNoFavor: () => oracleTable(0)
 }
 
 let session: OathGameSession | undefined

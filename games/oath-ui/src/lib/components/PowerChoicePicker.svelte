@@ -38,8 +38,13 @@
 
     let {
         choices,
-        picks = $bindable(emptyPicks())
-    }: { choices: LegalChoice[]; picks?: PowerChoicePicks } = $props()
+        picks = $bindable(emptyPicks()),
+        tollAt = () => false
+    }: {
+        choices: LegalChoice[]
+        picks?: PowerChoicePicks
+        tollAt?: (siteId: string) => boolean
+    } = $props()
 
     let gameSession = getGameSession()
     let busy = $derived(gameSession.busy)
@@ -99,7 +104,10 @@
             case PowerChoiceKind.Card:
                 return cardName(option.cardId)
             case PowerChoiceKind.Site:
-                return siteName(gameSession.gameState, option.siteId)
+                return (
+                    siteName(gameSession.gameState, option.siteId) +
+                    (tollAt(option.siteId) ? ' · toll 1 favor' : '')
+                )
             case PowerChoiceKind.Warbands:
                 return `${option.group.count} ${ownerName(option.group.owner)} at ${
                     option.group.at.kind === 'site'

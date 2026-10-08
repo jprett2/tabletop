@@ -11,6 +11,7 @@ import {
     forceTotal,
     powerKey,
     shroudedWoodChooser,
+    powerMoveToll,
     warbandEntries,
     type BattlePlanUse,
     type CardPower,
@@ -187,6 +188,15 @@ export class VictoryDraft implements PanelDraft {
                     burnFavor: false,
                     banishToSiteId
                 }) === undefined
+        )
+    }
+
+    /** Toll Roads — the banished player is asked to pay there, so the picker says so. */
+    banishTollAt(siteId: string): boolean {
+        const defenderId = this.session.gameState.campaign?.defenderPlayerId
+        return (
+            defenderId !== undefined &&
+            powerMoveToll(this.session.gameState, defenderId, siteId) !== undefined
         )
     }
 

@@ -6,6 +6,7 @@
     import QuestionConspiracy from '$lib/components/QuestionConspiracy.svelte'
     import QuestionGatheringFloor from '$lib/components/QuestionGatheringFloor.svelte'
     import QuestionStackOrder from '$lib/components/QuestionStackOrder.svelte'
+    import QuestionToll from '$lib/components/QuestionToll.svelte'
     import QuestionVision from '$lib/components/QuestionVision.svelte'
     import QuestionYesNo from '$lib/components/QuestionYesNo.svelte'
     import ShownCards from '$lib/components/ShownCards.svelte'
@@ -47,6 +48,10 @@
 
     {#if !question}
         <p class="text-sm text-oath-text-muted">Nothing is waiting on an answer.</p>
+    {:else if !mine && question.kind === PowerQuestionKind.PayTravelToll}
+        <p class="text-sm text-oath-text-muted">
+            Waiting on {gameSession.getPlayerName(question.askedPlayerId)}.
+        </p>
     {:else if !mine}
         <p class="text-sm text-oath-text-muted">
             Waiting on {gameSession.getPlayerName(question.askedPlayerId)} to answer {cardName(
@@ -173,7 +178,9 @@
                     disabled={busy}
                     onclick={() => draft.travelTo(siteId)}
                 >
-                    {siteName(gameState, siteId)}
+                    {siteName(gameState, siteId)}{#if draft.travelTollAt(siteId)}<TokenText
+                            text=" · +1 favor"
+                        />{/if}
                 </button>
             {/each}
         </div>
@@ -248,5 +255,7 @@
         <QuestionStackOrder question={mine} />
     {:else if mine.kind === PowerQuestionKind.GatheringFloor}
         <QuestionGatheringFloor />
+    {:else if mine.kind === PowerQuestionKind.PayTravelToll}
+        <QuestionToll question={mine} />
     {/if}
 </div>

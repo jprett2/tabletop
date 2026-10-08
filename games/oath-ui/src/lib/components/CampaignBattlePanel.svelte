@@ -294,7 +294,11 @@
                 >
                     <option value="">leave it where it is</option>
                     {#each spoils.banishSites as siteId (siteId)}
-                        <option value={siteId}>{siteName(gameState, siteId)}</option>
+                        <option value={siteId}
+                            >{siteName(gameState, siteId)}{spoils.banishTollAt(siteId)
+                                ? ' · toll 1 favor'
+                                : ''}</option
+                        >
                     {/each}
                 </select>
             </label>

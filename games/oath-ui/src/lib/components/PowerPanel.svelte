@@ -4,6 +4,7 @@
     import { cardPower, powerKey, type LegalPowerUse, type PowerUseKey } from '@tabletop/oath'
     import CardImage from '$lib/components/CardImage.svelte'
     import PowerChoicePicker from '$lib/components/PowerChoicePicker.svelte'
+    import FavorCost from '$lib/components/FavorCost.svelte'
     import { getGameSession } from '$lib/model/sessionContext.svelte.js'
     import { cardName } from '$lib/model/names.js'
     import { MAJOR_ACTIONS } from '$lib/model/actionCatalogue.js'
@@ -110,11 +111,18 @@
                     <span class="font-semibold">{cardName(p.cardId)}</span>
                     <span class="text-oath-text-muted text-xs"> — {textOf(p)}</span>
                 </div>
+                {#each draft.tollsOf(p) as toll (toll.cardId)}
+                    <p class="mt-1 text-sm">
+                        <FavorCost sign="+" count={1} />
+                        {toll.payeeId ? `to ${gameSession.getPlayerName(toll.payeeId)}` : 'burned'}
+                    </p>
+                {/each}
                 {#if p.choices.length > 0}
                     <div class="mt-1">
                         <PowerChoicePicker
                             choices={p.choices}
                             bind:picks={() => draft.picksOf(p), (picks) => draft.setPicks(p, picks)}
+                            tollAt={draft.moveTollAt(p)}
                         />
                     </div>
                 {/if}
