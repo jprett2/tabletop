@@ -10,6 +10,7 @@ import { noKnownDiscardPiles } from '../util/knowledge.js'
 import { createOathVault, type OathVault } from '../model/vault.js'
 import { bySuit } from '../data/typedData.js'
 import type { CampaignState } from '../model/campaign.js'
+import type { CampaignParties } from '../util/campaign.js'
 import { isVision, registerCards } from '../data/cardRegistry.js'
 
 /** The eight map slots (R-2.1.1): 2 Cradle, 3 Provinces, 3 Hinterland. */
@@ -229,4 +230,9 @@ export function campaignRecords(): Pick<
         rollRules: {},
         sacrificeWorth: 1
     }
+}
+
+/** A Campaign's sides where R-5.5.1.a suspends nobody, for a plan list read outside a Campaign. */
+export function partiesSuspendingNobody(attackerPlayerId: string): CampaignParties {
+    return { attackerPlayerId, allyPlayerIds: [], nonImperialPlayerIds: [], targets: [] }
 }
