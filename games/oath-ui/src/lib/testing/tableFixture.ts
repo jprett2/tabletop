@@ -54,6 +54,7 @@ import {
     tableOf,
     type PlayedTable
 } from './sessionHarness.js'
+import { shroudedWoodState } from './shroudedWoodTable.js'
 
 export type TableName =
     | 'setup'
@@ -84,6 +85,8 @@ export type TableName =
     | 'cardChangesSearch'
     | 'cardsOpenTravel'
     | 'majorEvents'
+    | 'woodTraveller'
+    | 'woodRuler'
 
 const PROPHET_ADVISERS = [
     'denizen.order.messenger',
@@ -854,6 +857,13 @@ function travelCardsTable(): PlayedTable {
     return tableOf(state)
 }
 
+/** R-11.7 — Cole asked where Jacob goes from the Shrouded Wood Cole rules. */
+function woodRulerTable(): PlayedTable {
+    const state = shroudedWoodState(2, { onBoard: true })
+    const table = tableOf(state)
+    return played(table, [createAction(Travel, { ...envelope(table), playerId: 'Jacob' })])
+}
+
 const TABLES: Record<TableName, () => PlayedTable> = {
     setup: setupTable,
     searching: searchingTable,
@@ -882,7 +892,9 @@ const TABLES: Record<TableName, () => PlayedTable> = {
     cardOpensSearch: () => mushroomsTable(1),
     cardChangesSearch: () => mushroomsTable(2),
     cardsOpenTravel: travelCardsTable,
-    majorEvents: majorEventsTable
+    majorEvents: majorEventsTable,
+    woodTraveller: () => tableOf(shroudedWoodState(2, { onBoard: true })),
+    woodRuler: woodRulerTable
 }
 
 let session: OathGameSession | undefined

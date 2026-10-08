@@ -161,12 +161,13 @@ export const MINOR_TARGETED_ACTIONS: ReadonlySet<ActionType> = new Set([
     ActionType.ExileCitizen
 ])
 
-export type PromptState = { cardChosen: boolean; adviserChosen: boolean }
+export type PromptState = { cardChosen: boolean; adviserChosen: boolean; leavingWood: boolean }
 
 export function actionPrompt(action: ActionType, state: PromptState): string {
     switch (action) {
         case ActionType.Travel:
-            return 'Choose a destination.'
+            // R-11.7 — the Shrouded Wood's ruler chooses; the traveller only sets out.
+            return state.leavingWood ? 'Leave the Shrouded Wood.' : 'Choose a destination.'
         case ActionType.Muster:
             return 'Choose a card at your site to place favor on.'
         case ActionType.Trade:

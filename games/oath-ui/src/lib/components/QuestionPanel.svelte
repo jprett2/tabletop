@@ -8,6 +8,7 @@
     import QuestionStackOrder from '$lib/components/QuestionStackOrder.svelte'
     import QuestionVision from '$lib/components/QuestionVision.svelte'
     import QuestionYesNo from '$lib/components/QuestionYesNo.svelte'
+    import QuestionWoodPick from '$lib/components/QuestionWoodPick.svelte'
     import ShownCards from '$lib/components/ShownCards.svelte'
     import SuitPicker from '$lib/components/SuitPicker.svelte'
     import CardChoiceRow from '$lib/components/CardChoiceRow.svelte'
@@ -177,6 +178,8 @@
                 </button>
             {/each}
         </div>
+    {:else if mine.kind === PowerQuestionKind.ShroudedWoodDestination && mine.travel}
+        <QuestionWoodPick question={mine} />
     {:else if mine.kind === PowerQuestionKind.ShroudedWoodDestination}
         <p class="text-sm mb-2">
             You rule the Shrouded Wood: choose where {gameSession.getPlayerName(

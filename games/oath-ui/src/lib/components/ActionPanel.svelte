@@ -16,6 +16,7 @@
     import SearchMenu from '$lib/components/SearchMenu.svelte'
     import TradeMenu from '$lib/components/TradeMenu.svelte'
     import TravelMenu from '$lib/components/TravelMenu.svelte'
+    import WoodTravelPanel from '$lib/components/WoodTravelPanel.svelte'
     import BannerRecoverPanel from '$lib/components/BannerRecoverPanel.svelte'
     import CitizenshipPanel from '$lib/components/CitizenshipPanel.svelte'
     import ConsentPanel from '$lib/components/ConsentPanel.svelte'
@@ -46,7 +47,8 @@
             ? undefined
             : actionPrompt(chosen, {
                   cardChosen: selection.value('card') !== undefined,
-                  adviserChosen: gameSession.adviserCardId !== undefined
+                  adviserChosen: gameSession.adviserCardId !== undefined,
+                  leavingWood: gameSession.woodRegions !== undefined
               })
     )
 
@@ -144,7 +146,14 @@
                 </div>
             {/if}
 
-            {#if chosen === ActionType.Travel && gameSession.shroudedWoodChooser}
+            {#if chosen === ActionType.Travel && gameSession.shroudedWoodChooser && gameSession.woodRegions}
+                <div class="mb-2">
+                    <WoodTravelPanel
+                        ruler={gameSession.getPlayerName(gameSession.shroudedWoodChooser)}
+                        regions={gameSession.woodRegions}
+                    />
+                </div>
+            {:else if chosen === ActionType.Travel && gameSession.shroudedWoodChooser}
                 {@const woodReason = gameSession.woodTravelReason}
                 <div class="mb-2 text-sm">
                     <p class="mb-1">
