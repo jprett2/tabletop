@@ -185,6 +185,25 @@ function supply(spent: number | undefined): string {
     return spent !== undefined && spent > 0 ? `, spending ${spent} Supply` : ''
 }
 
+const TOLL_GIVEN = /^(.+): gave a favor to (.+)$/
+const TOLL_BURNED = /^(.+): burned a favor for the bandits$/
+
+/**
+ * R-7.1.4 — each toll the record says was paid, as its own clause: the favor, whom it went to and
+ * the card that asked it, or the favor burned for the bandits. A note in another form is skipped,
+ * and a record from before the field prints no clause.
+ */
+export function tollClauses(notes: readonly string[] | undefined, nameOf: NameOf): string {
+    return (notes ?? [])
+        .map((note) => {
+            const given = TOLL_GIVEN.exec(note)
+            if (given) return `; 1 favor to ${nameOf(given[2])} (${cardName(given[1])})`
+            const burned = TOLL_BURNED.exec(note)
+            return burned ? `; burned 1 favor (${cardName(burned[1])})` : ''
+        })
+        .join('')
+}
+
 function describeActionCited(
     action: GameAction,
     names: HistoryNames,
@@ -237,6 +256,7 @@ function describeActionCited(
         return (
             `searched ${from}${supply(action.metadata?.supplySpent)}` +
             (shown ? `, showing ${shown.map(cardName).join(', ')} (Truthful Harp)` : '') +
+            tollClauses(action.metadata?.tollsPaid, nameOf) +
             (searchStoppedOnVision(action) ? '; the draw stopped on a Vision' : '')
         )
     }

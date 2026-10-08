@@ -1,3 +1,4 @@
+import { assertExists } from '@tabletop/common'
 import { ActionType } from '@tabletop/oath'
 
 /** R-5, R-6 — the actions the Act Phase grid offers. */
@@ -160,6 +161,13 @@ export const MINOR_TARGETED_ACTIONS: ReadonlySet<ActionType> = new Set([
     ActionType.MoveWarbands,
     ActionType.ExileCitizen
 ])
+
+/** The staged action's bar reads the action's name, the word on its tile. */
+export function actionName(action: ActionType): string {
+    const entry = ALL_ACTIONS.find((candidate) => candidate.type === action)
+    assertExists(entry, `${action} is not an Act Phase grid action`)
+    return entry.label
+}
 
 export type PromptState = { cardChosen: boolean; adviserChosen: boolean }
 
