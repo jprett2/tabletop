@@ -19,7 +19,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Sticky Fire:** takes effect over Billowing Fog (R-9.2).
 - **Cursed Cauldron:** counts only the defeated side's kills, Hospital-saved warbands included; its Q&A also counts Bear Traps and skull kills.
 - **The Grand Scepter:** one received in an exchange is locked for the turn; its Q&A lets it be used.
-- **Obsidian Cage:** warbands of an Exile who has since become a Citizen return as that player's own; the Q&A makes them Imperial.
+- **Obsidian Cage:** in a game created before revision 4 (R-X.4), warbands of an Exile who has since become a Citizen return as that player's own; the Q&A makes them Imperial.
 - **Revelation:** asks from the player who played it; the Q&A starts from the Chancellor.
 - **Gambling Hall:** the favor bank is chosen before the roll.
 - **Witch's Bargain:** deals with one player per use; the Q&A allows several.
