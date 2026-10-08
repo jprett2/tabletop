@@ -27,10 +27,11 @@
     import EndOfRoundPanel from '$lib/components/EndOfRoundPanel.svelte'
     import ActorOnlyNotice from '$lib/components/ActorOnlyNotice.svelte'
     import { getGameSession } from '$lib/model/sessionContext.svelte.js'
+    import { PlayerName } from '@tabletop/frontend-components'
     import {
         MINOR_TARGETED_ACTIONS,
         MODIFIABLE_ACTIONS,
-        actionPrompt
+        actionName
     } from '$lib/model/actionCatalogue.js'
 
     let gameSession = getGameSession()
@@ -40,15 +41,6 @@
 
     let selection = $derived(gameSession.selection)
     let chosen = $derived(selection.action)
-
-    let prompt = $derived(
-        chosen === undefined
-            ? undefined
-            : actionPrompt(chosen, {
-                  cardChosen: selection.value('card') !== undefined,
-                  adviserChosen: gameSession.adviserCardId !== undefined
-              })
-    )
 
     let inActPhase = $derived(gameState.machineState === MachineState.ActPhase)
     let wakeNeedsDecision = $derived(gameSession.wakeNeedsDecision)
@@ -86,7 +78,11 @@
     {:else if gameState.machineState === MachineState.EndOfRound}
         <EndOfRoundPanel />
     {:else if !isMyTurn}
-        <p class="text-sm text-oath-text-muted">Waiting for another player.</p>
+        <p class="text-sm text-oath-text-muted">
+            Waiting on {#each gameState.activePlayerIds as playerId, i (playerId)}{i > 0
+                    ? ' and '
+                    : ''}<PlayerName {playerId} />{/each}.
+        </p>
     {:else if gameState.machineState === MachineState.CampaignSacrifice || gameState.machineState === MachineState.CampaignDefeat || gameState.machineState === MachineState.CampaignVictory}
         <CampaignBattlePanel />
     {:else if gameState.machineState === MachineState.Searching}
@@ -123,7 +119,7 @@
                 class="mb-2 rounded bg-oath-accent-soft px-2 py-1.5
                        flex items-center justify-between gap-2"
             >
-                <span class="text-sm"><TokenText text={prompt ?? ''} /></span>
+                <span class="text-sm">{actionName(chosen)}</span>
                 <button
                     disabled={busy}
                     class="shrink-0 rounded bg-oath-control hover:bg-oath-control-hover px-2 py-1

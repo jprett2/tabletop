@@ -84,6 +84,7 @@ export type TableName =
     | 'cardChangesSearch'
     | 'cardsOpenTravel'
     | 'majorEvents'
+    | 'freeTravel'
 
 const PROPHET_ADVISERS = [
     'denizen.order.messenger',
@@ -854,6 +855,34 @@ function travelCardsTable(): PlayedTable {
     return tableOf(state)
 }
 
+/** R-10.2: a granted free Travel is due, so only it, giving it up or ending the phase is offered. */
+function freeTravelTable(): PlayedTable {
+    const [home, next] = mapSlotsFor(Region.Cradle)
+    const state = testState(
+        [
+            testPlayer({ playerId: 'me', color: Color.Red, siteId: home, supply: 3, favor: 3 }),
+            testPlayer({
+                playerId: 'ann',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: mapSlotId(Region.Provinces, 0),
+                advisers: [{ cardId: 'denizen.arcane.tutor', faceUp: false }]
+            })
+        ],
+        {
+            machineState: MachineState.ActPhase,
+            chancellorPlayerId: 'ann',
+            map: allMapSlots(),
+            siteCards: fixtureSitesOnTheBoard(),
+            denizensBySite: { [home]: ['denizen.hearth.wayside-inn'], [next]: [] }
+        }
+    )
+    state.getPlayerState('me').freeTravelAtAction = state.actionCount
+    openTurn(state, 'me')
+    state.activePlayerIds = ['me']
+    return tableOf(state)
+}
+
 const TABLES: Record<TableName, () => PlayedTable> = {
     setup: setupTable,
     searching: searchingTable,
@@ -882,7 +911,8 @@ const TABLES: Record<TableName, () => PlayedTable> = {
     cardOpensSearch: () => mushroomsTable(1),
     cardChangesSearch: () => mushroomsTable(2),
     cardsOpenTravel: travelCardsTable,
-    majorEvents: majorEventsTable
+    majorEvents: majorEventsTable,
+    freeTravel: freeTravelTable
 }
 
 let session: OathGameSession | undefined
