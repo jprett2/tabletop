@@ -493,7 +493,7 @@ function wakeDone(action: ResolveWake): string[] {
     return [...steps, ...took]
 }
 
-export function withoutCardName(summary: string, cardId: string): string {
+function withoutCardName(summary: string, cardId: string): string {
     const prefix = `${cardName(cardId)}: `
     return summary.startsWith(prefix) ? summary.slice(prefix.length) : summary
 }
