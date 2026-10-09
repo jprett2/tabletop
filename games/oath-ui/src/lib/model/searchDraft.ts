@@ -14,7 +14,12 @@ import {
 import { PLAY_LABELS, teaches } from './adviserPlacements.js'
 import { discardOrderOf, isDiscardOrderComplete } from './discardOrder.js'
 import { cardName } from './names.js'
-import { emptyPicks, powerChoicesFrom, type PowerChoicePicks } from './powerChoices.js'
+import {
+    emptyPicks,
+    picksComplete,
+    powerChoicesFrom,
+    type PowerChoicePicks
+} from './powerChoices.js'
 import { whenPlayedChoices } from './whenPlayed.js'
 import { adviserRoom, toggledDiscard, type AdviserRoom } from './adviserDiscards.js'
 import {
@@ -173,6 +178,11 @@ export class SearchDraft implements PanelDraft {
 
     get picks(): PowerChoicePicks {
         return this.flow.value('whenPlayed')?.picks ?? emptyPicks()
+    }
+
+    /** "Play" waits until every When Played choice has its picks. */
+    get whenPlayedComplete(): boolean {
+        return picksComplete(this.whenPlayed, this.picks)
     }
 
     get needsWhenPlayed(): boolean {

@@ -219,18 +219,20 @@
             choices={search.whenPlayed}
             bind:picks={() => search.picks, (picks) => search.setPicks(picks)}
         />
-        {#if reason}
-            <p class="text-[11px] text-oath-danger">
-                <TokenText text={gameSession.humanizeReason(reason) ?? ''} />
-            </p>
+        {#if search.whenPlayedComplete}
+            {#if reason}
+                <p class="text-[11px] text-oath-danger">
+                    <TokenText text={gameSession.humanizeReason(reason) ?? ''} />
+                </p>
+            {/if}
+            <button
+                class="mt-1 rounded bg-oath-primary text-oath-primary-text hover:bg-oath-primary-hover disabled:opacity-40 px-2 py-0.5 text-xs"
+                disabled={busy || !!reason}
+                onclick={() => search.confirmWhenPlayed()}
+            >
+                Play {cardName(search.kept)}
+            </button>
         {/if}
-        <button
-            class="mt-1 rounded bg-oath-primary text-oath-primary-text hover:bg-oath-primary-hover disabled:opacity-40 px-2 py-0.5 text-xs"
-            disabled={busy || !!reason}
-            onclick={() => search.confirmWhenPlayed()}
-        >
-            Play {cardName(search.kept)}
-        </button>
     {:else}
         <div class="flex flex-wrap gap-2">
             <DiscardOrderCards
