@@ -87,6 +87,7 @@ export type TableName =
     | 'cardsOpenTravel'
     | 'majorEvents'
     | 'oathkeeperChoice'
+    | 'tavernSongs'
 
 const PROPHET_ADVISERS = [
     'denizen.order.messenger',
@@ -859,6 +860,36 @@ function mushroomsTable(supply: number): PlayedTable {
     return tableOf(state)
 }
 
+/** R-9.4: Tavern Songs at the seat's site peeks at the Cradle discard pile, which nobody else sees. */
+function tavernSongsTable(): PlayedTable {
+    const [home] = mapSlotsFor(Region.Cradle)
+    const state = testState(
+        [
+            testPlayer({ playerId: 'me', color: Color.Red, siteId: home, supply: 7 }),
+            testPlayer({
+                playerId: 'ann',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: mapSlotId(Region.Provinces, 0)
+            })
+        ],
+        {
+            machineState: MachineState.ActPhase,
+            chancellorPlayerId: 'ann',
+            map: allMapSlots(),
+            siteCards: fixtureSitesOnTheBoard(),
+            denizensBySite: { [home]: ['denizen.hearth.tavern-songs'] },
+            discardPileCounts: { cradle: 2, provinces: 0, hinterland: 0 },
+            vault: testVaultWithDiscards({
+                [Region.Cradle]: ['denizen.hearth.book-binders', 'denizen.order.council-seat']
+            })
+        }
+    )
+    openTurn(state, 'me')
+    state.activePlayerIds = ['me']
+    return tableOf(state)
+}
+
 /** R-7.4: no Supply to Travel with, and two advisers that each waive it. */
 function travelCardsTable(): PlayedTable {
     const [home] = mapSlotsFor(Region.Cradle)
@@ -925,7 +956,8 @@ const TABLES: Record<TableName, () => PlayedTable> = {
     cardChangesSearch: () => mushroomsTable(2),
     cardsOpenTravel: travelCardsTable,
     majorEvents: majorEventsTable,
-    oathkeeperChoice: oathkeeperChoiceTable
+    oathkeeperChoice: oathkeeperChoiceTable,
+    tavernSongs: tavernSongsTable
 }
 
 let session: OathGameSession | undefined
