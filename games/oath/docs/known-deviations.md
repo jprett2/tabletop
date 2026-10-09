@@ -7,6 +7,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 ## Card powers
 
 - **Battle-plan costs:** in a game created before revision 3 (R-X.4) each plan's cost is checked alone against the untouched holding, so a side can declare plans it cannot pay in full: the payment throws, or Gleaming Armor's added secret leaves its payer below zero.
+- **Deed Writer's warbands:** in a game created before revision 4 (R-X.4) each site's warbands are checked alone against the new ruler's board, so terms can promise more warbands than the board holds in all: accepting them throws.
 - **Vow of Silence, Vow of Renewal:** they also block a Campaign's banner target, which is a Seize (R-10.23), not the Recover the cards forbid.
 - **Vow of Silence:** its holder gains the secrets paid for the Darkest Secret, not the number placed, so Magician's Code's two are missed.
 - **Small Friends:** the modifiers at the pawn's own site stay usable, and those at Beast sites are opened without being declared.
@@ -45,6 +46,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Master of Disguise:** the engine accepts the other player's Trade modifiers, but the modifier picker does not list them.
 - **Warning Signals:** warbands moved from the board all go to one site per use.
 - **Toll Roads:** never asked or paid on travel a power causes (a banish, the Whistle, Palanquin's carried player, Brass Horse).
+- **Ring of Devotion:** its holder still moves warbands from their board onto a site they take in a Deed Writer exchange; the Ring reads "You cannot place warbands at sites.", and its Q&A applies that to every case.
 
 ## Rules
 
