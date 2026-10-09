@@ -767,6 +767,43 @@ describe('the history tab describes every action', () => {
             ).toContain('with 3 warbands left Imperial')
         })
 
+        it('R-9.3 — one warband left Imperial is “1 warband”, on either exile and on a Citizenship', () => {
+            const one = { favorGiven: 2, replacedCount: 1, unreplacedCount: 1 }
+            expect(
+                describeAction(action({ type: ActionType.SelfExile, playerId: 'p1', metadata: one }), nameOf)
+            ).toBe('went into exile, giving 2 favor to the Grand Scepter’s holder, with 1 warband left Imperial')
+            expect(
+                describeAction(
+                    action({ type: ActionType.ExileCitizen, playerId: 'p1', citizenPlayerId: 'p2', metadata: one }),
+                    nameOf
+                )
+            ).toBe('exiled Bob, giving them 2 favor, with 1 warband left Imperial')
+            expect(
+                describeAction(
+                    action({
+                        type: ActionType.ResolveCitizenshipOffer,
+                        playerId: 'p2',
+                        granted: true,
+                        metadata: { outcome: { unreplacedCount: 1 } }
+                    }),
+                    nameOf
+                )
+            ).toBe('accepted Citizenship, removing 1 warband for want of Imperial ones')
+        })
+
+        it('R-6.8, R-10.11 — a self-exile names who got the favor; a record without the holder keeps its words', () => {
+            const paid = { favorGiven: 3, replacedCount: 2, unreplacedCount: 0 }
+            expect(
+                describeAction(
+                    action({ type: ActionType.SelfExile, playerId: 'p1', metadata: { ...paid, scepterHolderId: 'p2' } }),
+                    nameOf
+                )
+            ).toBe('went into exile, giving 3 favor to Bob')
+            expect(
+                describeAction(action({ type: ActionType.SelfExile, playerId: 'p1', metadata: paid }), nameOf)
+            ).toBe('went into exile, giving 3 favor to the Grand Scepter’s holder')
+        })
+
         it('R-6.1 — names the card in place, with no dangling "it"', () => {
             const play = (p: SearchPlay) =>
                 describeAction(

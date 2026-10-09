@@ -3,7 +3,13 @@
     import CountPicker from '$lib/components/CountPicker.svelte'
     import { range } from '@tabletop/common'
     import { siteName, transferText } from '$lib/model/names.js'
-    import { ConsentRequestKind, forceTotal, type WarbandGroup } from '@tabletop/oath'
+    import { PlayerName } from '@tabletop/frontend-components'
+    import {
+        ConsentRequestKind,
+        IMPERIAL_WARBANDS,
+        forceTotal,
+        type WarbandGroup
+    } from '@tabletop/oath'
     import { getGameSession } from '$lib/model/sessionContext.svelte.js'
     import { consentQuestion } from '$lib/model/consentRequests.js'
 
@@ -20,6 +26,18 @@
     let iAmAsked = $derived(!!me && pending?.askedPlayerId === me.id)
     let asked = $derived(gameSession.consentAsked)
     let grantBlockedBecause = $derived(gameSession.consentGrantBlockedBecause)
+    let question = $derived(
+        asked && consentQuestion(gameState, asked, (id) => gameSession.getPlayerName(id))
+    )
+    // R-10.13 — the warbands asked about are their owner's pieces, the Empire's in its colour.
+    let warbandColors = $derived(
+        asked?.request.kind === ConsentRequestKind.WarbandMove
+            ? {
+                  own: gameSession.warbandColor(asked.request.owner),
+                  imperial: gameSession.warbandColor(IMPERIAL_WARBANDS)
+              }
+            : undefined
+    )
 
     let request = $derived(
         pending?.request.kind === ConsentRequestKind.CitizenshipOffer ? pending.request : undefined
@@ -42,11 +60,11 @@
     }
 </script>
 
-<div>
-    <h3 class="text-[11px] uppercase tracking-[0.2em] text-oath-heading mb-2">
-        A question for you
-    </h3>
+{#snippet heading(text: string)}
+    <h3 class="text-[11px] uppercase tracking-[0.2em] text-oath-heading mb-2">{text}</h3>
+{/snippet}
 
+<div>
     {#if !pending}
         <p class="text-sm text-oath-text-muted">Nothing is waiting on an answer.</p>
     {:else if !iAmAsked}
@@ -56,27 +74,33 @@
                 ? '’s offer of Citizenship'
                 : ''}.
         </p>
-    {:else if asked}
+    {:else if asked && question}
+        {@render heading(question.heading)}
         <p class="text-sm mb-2">
-            {consentQuestion(gameState, asked, (id) => gameSession.getPlayerName(id))}
+            {#each question.parts as part, i (i)}{#if part.kind === 'seat'}<PlayerName
+                        playerId={part.playerId}
+                    />{:else}<TokenText text={part.text} {warbandColors} />{/if}{/each}
         </p>
+        <!-- Rule 1 — a move the board no longer allows has no Allow; the engine's reason says why. -->
         {#if grantBlockedBecause}
             <p class="mb-2 text-[11px] text-oath-danger">
-                {gameSession.humanizeReason(grantBlockedBecause)}
+                <TokenText text={gameSession.humanizeReason(grantBlockedBecause) ?? ''} />
             </p>
         {/if}
-        <div class="flex gap-2">
+        <div class="inline-grid auto-cols-fr grid-flow-col gap-2">
+            {#if !grantBlockedBecause}
+                <button
+                    class="rounded bg-oath-primary text-oath-primary-text hover:bg-oath-primary-hover disabled:opacity-40
+                           px-3 py-1.5 text-sm font-semibold max-sm:min-h-11"
+                    disabled={busy}
+                    onclick={() => gameSession.answerConsent(true)}
+                >
+                    {asked.request.kind === ConsentRequestKind.JoinDefence ? 'Join' : 'Allow'}
+                </button>
+            {/if}
             <button
-                class="grow rounded bg-oath-primary text-oath-primary-text hover:bg-oath-primary-hover disabled:opacity-40
-                       px-2 py-1.5 text-sm font-semibold"
-                disabled={busy || !!grantBlockedBecause}
-                onclick={() => gameSession.answerConsent(true)}
-            >
-                {asked.request.kind === ConsentRequestKind.JoinDefence ? 'Join' : 'Allow'}
-            </button>
-            <button
-                class="grow rounded bg-oath-control hover:bg-oath-control-hover disabled:opacity-40
-                       px-2 py-1.5 text-sm font-semibold"
+                class="rounded bg-oath-control hover:bg-oath-control-hover disabled:opacity-40
+                       px-3 py-1.5 text-sm font-semibold max-sm:min-h-11"
                 disabled={busy}
                 onclick={() => gameSession.answerConsent(false)}
             >
@@ -84,6 +108,7 @@
             </button>
         </div>
     {:else if request}
+        {@render heading('A question for you')}
         <p class="text-sm mb-2">
             <span class="font-semibold">{gameSession.getPlayerName(pending.askingPlayerId)}</span>
             offers you Citizenship, and the relic in {request.reliquarySlotId}.

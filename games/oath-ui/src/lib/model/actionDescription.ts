@@ -355,7 +355,7 @@ function describeActionCited(
         return action.granted
             ? 'accepted Citizenship' +
                   (unreplaced > 0
-                      ? `, removing ${unreplaced} warbands for want of Imperial ones`
+                      ? `, removing ${plural(unreplaced, 'warband')} for want of Imperial ones`
                       : '')
             : 'refused Citizenship'
     }
@@ -371,21 +371,19 @@ function describeActionCited(
         return (
             `exiled ${nameOf(action.citizenPlayerId)}` +
             ((meta?.favorGiven ?? 0) > 0 ? `, giving them ${meta?.favorGiven} favor` : '') +
-            ((meta?.unreplacedCount ?? 0) > 0
-                ? `, with ${meta?.unreplacedCount} warbands left Imperial`
-                : '')
+            unreplacedClause(meta?.unreplacedCount ?? 0)
         )
     }
     if (isSelfExile(action)) {
+        // R-6.8, R-10.11 — the favor goes to the Grand Scepter's holder, named once the record keeps them.
         const meta = action.metadata
+        const holderId = meta?.scepterHolderId
         return (
             'went into exile' +
             ((meta?.favorGiven ?? 0) > 0
-                ? `, giving ${meta?.favorGiven} favor to the Grand Scepter’s holder`
+                ? `, giving ${meta?.favorGiven} favor to ${holderId ? nameOf(holderId) : 'the Grand Scepter’s holder'}`
                 : '') +
-            ((meta?.unreplacedCount ?? 0) > 0
-                ? `, with ${meta?.unreplacedCount} warbands left Imperial`
-                : '')
+            unreplacedClause(meta?.unreplacedCount ?? 0)
         )
     }
     if (isResolveWake(action)) {
@@ -488,6 +486,11 @@ function namedBanks(text: string): string {
         (named, suit) => named.replaceAll(`the ${suit} bank`, `the ${suitName(suit)} bank`),
         text
     )
+}
+
+/** R-9.3 — an exile's own warbands ran short, so the rest stayed Imperial. */
+function unreplacedClause(count: number): string {
+    return count > 0 ? `, with ${plural(count, 'warband')} left Imperial` : ''
 }
 
 function describeAdviserPlay(play: SearchPlay, card: string): string {

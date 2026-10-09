@@ -107,16 +107,10 @@
         </p>
     {:else}
         {#if chosen === ActionType.OfferCitizenship}
+            <!-- Undo backs out of the offer one pick at a time, then puts the action down. -->
             <div class="mb-2">
                 <CitizenshipPanel />
             </div>
-            <button
-                disabled={busy}
-                class="mb-2 w-full rounded bg-oath-control hover:bg-oath-control-hover px-2 py-1 text-xs"
-                onclick={() => gameSession.resetAction()}
-            >
-                Cancel the offer
-            </button>
         {:else if chosen}
             <!-- docs/user-interactions.md — `Back` unwinds local selection only. -->
             <div
