@@ -5,6 +5,7 @@
     import MenuRow from '$lib/components/MenuRow.svelte'
     import { cardBack, cardImage } from '$lib/images/cardImages.js'
     import { favorToken, secretToken } from '$lib/images/tileImages.js'
+    import { ChoiceWidth } from '$lib/model/choiceWidth.svelte.js'
     import { cardName, regionName } from '$lib/model/names.js'
     import type { TravelChoice, TravelRow } from '$lib/model/travelRows.js'
     import { getGameSession } from '$lib/model/sessionContext.svelte.js'
@@ -13,6 +14,8 @@
     let gameSession = getGameSession()
     let rows = $derived(gameSession.travelRows)
     let busy = $derived(gameSession.busy)
+    // Every region's destinations are one menu, so their buttons share one width.
+    const choiceWidth = new ChoiceWidth()
 
     const REGIONS = [Region.Cradle, Region.Provinces, Region.Hinterland]
     let groups = $derived(
@@ -67,6 +70,7 @@
                         <MenuChoice
                             label={spoken(row, way)}
                             disabled={busy}
+                            width={choiceWidth}
                             onclick={() => gameSession.travelTo(row.slotId, way)}
                         >
                             <span class="flex items-center gap-1.5 whitespace-nowrap">

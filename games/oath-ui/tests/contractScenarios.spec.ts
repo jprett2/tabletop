@@ -1266,6 +1266,78 @@ test('the fixture opens the Chancellor setup with the hand offered', async ({ pa
     expect(errors).toEqual([])
 })
 
+/**
+ * Each menu button's size, its row's width, and the width its words, tokens and chips take
+ * inside it with the button's padding, in CSS pixels: the panel may be drawn scaled to fit.
+ */
+async function menuButtonSizes(page: Page, list: string) {
+    return page
+        .getByRole('list', { name: list })
+        .getByRole('button')
+        .evaluateAll((buttons) =>
+            buttons.map((button) => {
+                const style = getComputedStyle(button)
+                const width = parseFloat(style.width)
+                const scale = button.getBoundingClientRect().width / width
+                const insets = ['padding-left', 'padding-right', 'border-left-width', 'border-right-width']
+                    .map((property) => parseFloat(style.getPropertyValue(property)))
+                    .reduce((sum, inset) => sum + inset, 0)
+                const inks: DOMRect[] = []
+                const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
+                for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                    // An image, or a box drawn around its words (a player's chip); the layout's own spans are neither.
+                    const drawn = (element: Element) =>
+                        element.childElementCount === 0 ||
+                        getComputedStyle(element).backgroundColor !== 'rgba(0, 0, 0, 0)'
+                    if (node instanceof Element && drawn(node)) {
+                        inks.push(node.getBoundingClientRect())
+                    } else if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+                        const range = document.createRange()
+                        range.selectNodeContents(node)
+                        inks.push(range.getBoundingClientRect())
+                    }
+                }
+                const row = button.closest('[role="listitem"]')
+                return {
+                    width,
+                    height: parseFloat(style.height),
+                    row: row ? parseFloat(getComputedStyle(row).width) : 0,
+                    content:
+                        (Math.max(...inks.map((ink) => ink.right)) - Math.min(...inks.map((ink) => ink.left))) / scale +
+                        insets
+                }
+            })
+        )
+}
+
+/** Rule 3: on a phone a menu's buttons keep their size: the label's width, one width per menu. */
+test.describe('at phone width', () => {
+    test.use({ viewport: { width: 375, height: 812 } })
+
+    for (const [table, action, list] of [
+        ['trade', 'Trade', 'Trades at your site']
+    ] as const) {
+        test(`the ${action} menu's buttons are their content's width, one width for the menu, at least 44 px tall`, async ({
+            page
+        }) => {
+            await openTable(page, table)
+            await tile(page, action).click()
+            await expect(page.getByRole('list', { name: list }).getByRole('button').first()).toBeVisible()
+            const sizes = await menuButtonSizes(page, list)
+            expect(sizes.length).toBeGreaterThan(1)
+            expect(new Set(sizes.map((size) => size.width)).size).toBe(1)
+            const width = sizes[0].width
+            const standard = 8.5 * 16
+            const widestContent = Math.max(...sizes.map((size) => size.content))
+            for (const size of sizes) {
+                expect(size.width).toBeLessThan(size.row * 0.7)
+                expect(size.height).toBeGreaterThanOrEqual(44)
+            }
+            expect(width).toBeLessThanOrEqual(Math.max(standard, widestContent) + 1)
+        })
+    }
+})
+
 const usePower = (page: Page) => grid(page).getByRole('button', { name: 'Use a power', exact: true })
 const actionCard = (page: Page, cardId: string) => grid(page).locator(`[data-action-card="${cardId}"]`)
 const picked = (page: Page) => grid(page).locator('button[aria-pressed="true"]')
