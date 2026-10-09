@@ -86,6 +86,7 @@ export type TableName =
     | 'cardChangesSearch'
     | 'cardsOpenTravel'
     | 'majorEvents'
+    | 'oathkeeperChoice'
 
 const PROPHET_ADVISERS = [
     'denizen.order.messenger',
@@ -275,6 +276,44 @@ function endOfRoundTable(): PlayedTable {
             playerId: 'dev'
         })
     ])
+}
+
+/** R-2.11.b — on Cole's turn the holder ("me") no longer rules the most sites; Cole and Ann tie. */
+function oathkeeperChoiceTable(): PlayedTable {
+    const state = testState(
+        [
+            testPlayer({
+                playerId: 'me',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: 'c1'
+            }),
+            testPlayer({ playerId: 'cole', color: Color.Red, siteId: 'p1' }),
+            testPlayer({ playerId: 'ann', color: Color.Blue, siteId: 'h1' })
+        ],
+        {
+            machineState: MachineState.OathkeeperChoice,
+            chancellorPlayerId: 'me',
+            oathType: OathType.Supremacy,
+            oathkeeperPlayerId: 'me',
+            pendingOathkeeperChoice: {
+                holderPlayerId: 'me',
+                candidates: ['cole', 'ann'],
+                resumeMachineState: MachineState.ActPhase
+            },
+            warbandsBySite: {
+                c1: { [IMPERIAL_WARBANDS]: 1 },
+                p1: { cole: 1 },
+                p2: { cole: 1 },
+                h1: { ann: 1 },
+                h2: { ann: 1 }
+            }
+        }
+    )
+    openTurn(state, 'cole')
+    state.activePlayerIds = ['me']
+    state.vault = testVaultWithRelics({})
+    return tableOf(state)
 }
 
 /** R-3: every live goal at once: a tied Oath held by the Chancellor, a revealed Vision, a Citizen. */
@@ -885,7 +924,8 @@ const TABLES: Record<TableName, () => PlayedTable> = {
     cardOpensSearch: () => mushroomsTable(1),
     cardChangesSearch: () => mushroomsTable(2),
     cardsOpenTravel: travelCardsTable,
-    majorEvents: majorEventsTable
+    majorEvents: majorEventsTable,
+    oathkeeperChoice: oathkeeperChoiceTable
 }
 
 let session: OathGameSession | undefined
