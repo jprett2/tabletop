@@ -1,13 +1,24 @@
 import { RELIQUARY_MODIFIERS, Suit, cardDefinitions } from '@tabletop/oath'
 import { escapeRegExp } from '$lib/model/names.js'
 
+/**
+ * R-10.13 — whose warbands a counted phrase names: "Imperial", a seat by name, the viewer's
+ * ("your"), the actor's ("their own"), or no one, which leaves them the row's.
+ */
+export type WarbandWhose =
+    | { kind: 'imperial' }
+    | { kind: 'seat'; name: string }
+    | { kind: 'viewer' }
+    | { kind: 'actor' }
+    | { kind: 'row' }
+
 /** A run of panel text: words, a favor, secret or warband token with its count, or a suit's symbol. */
 export type TextPart =
     | { kind: 'text'; text: string }
     | { kind: 'favor'; count?: number }
     | { kind: 'secret'; count?: number }
     | { kind: 'suit'; suit: Suit; bank: boolean }
-    | { kind: 'warband'; count: number; imperial: boolean; words: string }
+    | { kind: 'warband'; count: number; whose: WarbandWhose; words: string }
 
 export interface TokenOptions {
     warbands?: boolean
@@ -25,7 +36,7 @@ const ALTERNATIVES = [
     String.raw`(?<!people['’]s )\b(?:(?<favorCount>\d+|an?|one) )?favor\b`,
     String.raw`(?<!darkest )\b(?:(?<secretCount>\d+|an?|one) )?secrets?\b`
 ]
-const WARBANDS = String.raw`\b(?<warbandCount>\d+|an?|one) (?<warbandWhose>(?<imperial>Imperial )|of [^,;:—]+?['’]s )?(?<warbandNoun>warbands?)\b`
+const WARBANDS = String.raw`\b(?<warbandCount>\d+|an?|one) (?<warbandWhose>(?<imperial>Imperial )|(?<viewer>of your (?:own )?)|(?<actor>of their own )|of (?<seat>[^,;:—]+?)['’]s )?(?<warbandNoun>warbands?)\b`
 
 const PATTERN = new RegExp(ALTERNATIVES.join('|'), 'gi')
 const PATTERN_WITH_WARBANDS = new RegExp([WARBANDS, ...ALTERNATIVES].join('|'), 'gi')
@@ -63,6 +74,14 @@ export function tokenParts(text: string, options: TokenOptions = {}): TextPart[]
     }, [])
 }
 
+function warbandWhose(groups: Record<string, string | undefined>): WarbandWhose {
+    if (groups.imperial) return { kind: 'imperial' }
+    if (groups.viewer) return { kind: 'viewer' }
+    if (groups.actor) return { kind: 'actor' }
+    if (groups.seat) return { kind: 'seat', name: groups.seat }
+    return { kind: 'row' }
+}
+
 function tokenRun(text: string, pattern: RegExp): TextPart[] {
     const parts: TextPart[] = []
     let from = 0
@@ -75,7 +94,7 @@ function tokenRun(text: string, pattern: RegExp): TextPart[] {
             parts.push({
                 kind: 'warband',
                 count: countOf(warbandCount) ?? 1,
-                imperial: groups.imperial !== undefined,
+                whose: warbandWhose(groups),
                 words: `${groups.warbandWhose ?? ''}${groups.warbandNoun}`
             })
         } else if (bankSuit) parts.push({ kind: 'suit', suit: suitNamed(bankSuit), bank: true })
