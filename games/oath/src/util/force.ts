@@ -6,6 +6,7 @@ import {
     totalWarbands,
     countOf,
     adjustCount,
+    countedWarbands,
     describeWarbands,
     warbandEntries
 } from './warbands.js'
@@ -251,6 +252,23 @@ export function warbandOwnerGainedByPower(
     return isAtLeastOathRevision(state, OathRevision.CitizenGainsImperial)
         ? warbandOwnerGainedBy(state, playerId)
         : ownWarbandOwner(state, playerId)
+}
+
+/**
+ * R-10.13 — from revision 4 a gain's words name the Empire's warbands, so the History draws them in
+ * the Chancellor's colour. A player's own stay a bare count, unless the line is read on a row that
+ * counts another's warbands. Before revision 4 (R-X.4) the words recorded then stand: `undefined`.
+ */
+export function gainedWarbandsWords(
+    state: HydratedOathGameState,
+    playerId: string,
+    gained: number,
+    own: 'bare' | 'named' = 'bare'
+): string | undefined {
+    if (!isAtLeastOathRevision(state, OathRevision.CitizenGainsImperial)) return undefined
+    const owner = warbandOwnerGainedByPower(state, playerId)
+    if (owner === IMPERIAL_WARBANDS || own === 'named') return describeWarbands(gained, owner)
+    return countedWarbands(gained)
 }
 
 /**
