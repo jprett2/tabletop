@@ -1,12 +1,6 @@
-import {
-    GameAction,
-    type GameHydrator,
-    type HydratedAction
-} from '@tabletop/common'
+import { GameAction, type GameHydrator, type HydratedAction } from '@tabletop/common'
 import { Hydrated{{properCase game}}GameState, {{properCase game}}GameState } from '../model/gameState.js'
 
-// This is essentially a factory that knows how to take raw action and state data
-// and return the correct hydrated class instances for the Sample game.  Used by the game engine
 export class {{properCase game}}Hydrator
     implements GameHydrator<{{properCase game}}GameState, Hydrated{{properCase game}}GameState>
 {

@@ -24,6 +24,10 @@ Before changing Site Frontend ↔ Game UI communication or shared Game Client be
 
 For new games or structural changes to game actions, state handlers, game state, or game components, read `docs/DESIGN.md`.
 
+### New game
+
+To build a new title from its rulebook as one unattended pass, from intake to a pull request, run the `/new-game` skill; its phases and gates are in `docs/agents/new-game-playbook.md`.
+
 ### 18xx design
 
 Before designing or changing any 18xx model, Action, state/handler, logical or visual component, or other reusable functionality, follow `docs/agents/18xx-design.md`. Consider the functionality across all researched titles; TOP and Shikoku 1889 are the first implementation consumers.

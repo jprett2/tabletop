@@ -1,0 +1,8 @@
+import type { GameScoring } from '@tabletop/common'
+import type { {{properCase game}}GameState } from '../model/gameState.js'
+
+export class {{properCase game}}Scoring implements GameScoring<{{properCase game}}GameState> {
+    finalScores(state: {{properCase game}}GameState): Record<string, number> {
+        return Object.fromEntries(state.players.map((player) => [player.playerId, 0]))
+    }
+}

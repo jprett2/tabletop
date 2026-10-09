@@ -1,26 +1,34 @@
 <script lang="ts">
+    import { untrack } from 'svelte'
     import {
         ScalingWrapper,
         DefaultSideContent,
         DefaultTableLayout,
         GameSession
     } from '@tabletop/frontend-components'
-
+    import type { Hydrated{{properCase game}}GameState, {{properCase game}}GameState } from '@tabletop/{{kebabCase game}}'
     import History from '$lib/components/History.svelte'
     import PlayersPanel from '$lib/components/PlayersPanel.svelte'
     import Board from '$lib/components/Board.svelte'
-
-    import type { {{properCase game}}GameSession } from '$lib/model/session.svelte'
-    import type { Hydrated{{properCase game}}GameState, {{properCase game}}GameState } from '@tabletop/{{kebabCase game}}'
+    import { {{properCase game}}GameSession } from '$lib/model/session.svelte'
     import { setGameSession } from '$lib/model/sessionContext.svelte'
 
     let {
         gameSession
     }: { gameSession: GameSession<{{properCase game}}GameState, Hydrated{{properCase game}}GameState> } = $props()
-    setGameSession(gameSession as {{properCase game}}GameSession)
+
+    function ensure{{properCase game}}GameSession(
+        session: GameSession<{{properCase game}}GameState, Hydrated{{properCase game}}GameState>
+    ): {{properCase game}}GameSession {
+        if (session instanceof {{properCase game}}GameSession) {
+            return session
+        }
+        throw new Error('GameTable expected a {{properCase game}}GameSession')
+    }
+
+    setGameSession(untrack(() => ensure{{properCase game}}GameSession(gameSession)))
 </script>
 
-<!-- Full Height and Width with 8px padding-->
 <div>
     <DefaultTableLayout>
         {#snippet sideContent()}
@@ -29,21 +37,12 @@
                     <PlayersPanel />
                 {/snippet}
                 {#snippet history()}
-                   <History />
+                    <History />
                 {/snippet}
             </DefaultSideContent>
         {/snippet}
         {#snippet gameContent()}
-            <!--  Top part is not allowed to shrink -->
-            <div class="shrink-0">
-                {#if gameSession.gameState.result}
-                    <!-- <GameEndPanel /> -->
-                {:else}
-                    <!-- <InformationPanel /> -->
-                {/if}
-            </div>
-            <!--  Bottom part fills the remaining space, but hides overflow to keep it's height fixed.
-              This allows the wrapper to scale to its bounds regardless of its content size-->
+            <div class="shrink-0"></div>
             <div class="grow-0 overflow-hidden" style="flex:1;">
                 <ScalingWrapper justify="center" controls="bottom-left">
                     <Board />
