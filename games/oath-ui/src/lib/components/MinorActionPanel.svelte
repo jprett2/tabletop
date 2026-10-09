@@ -18,6 +18,7 @@
     import MenuRow from '$lib/components/MenuRow.svelte'
     import { warbandImage } from '$lib/images/pieceImages.js'
     import { cardChoices, toggleSingle } from '$lib/model/cardChoice.js'
+    import { ChoiceWidth } from '$lib/model/choiceWidth.svelte.js'
     import { getGameSession } from '$lib/model/sessionContext.svelte.js'
     import { cardName, siteName } from '$lib/model/names.js'
 
@@ -34,6 +35,7 @@
     let moves = $derived(gameSession.warbandMoves.options)
     let exileOffers = $derived(gameSession.exileOffers)
     let selfExile = $derived(gameSession.selfExileOffer)
+    const exileWidth = new ChoiceWidth()
 
     const MOVE_LABELS: Record<WarbandMoveKind, string> = {
         [WarbandMoveKind.SiteToBoard]: 'From your site to your board',
@@ -205,8 +207,9 @@
         {/if}
     {:else if action === ActionType.ExileCitizen}
         <!-- R-6.7 — each button is the price and whom it goes to; a tap exiles them. One width
-             for all; one per line on a phone. -->
-        <div class="inline-grid self-start gap-2 sm:auto-cols-fr sm:grid-flow-col max-sm:self-stretch">
+             for all, the widest label's, on a phone as on a desktop; side by side while they fit,
+             and those that do not go to the next line at the same width. -->
+        <div class="flex flex-wrap self-start gap-2">
             {#each exileOffers as offer (offer.citizenPlayerId)}
                 <button
                     type="button"
@@ -219,7 +222,15 @@
                     disabled={busy}
                     onclick={() => gameSession.exileCitizen(offer.citizenPlayerId)}
                 >
-                    <FavorTo favor={offer.favor} playerId={offer.citizenPlayerId} gold={true} />
+                    <span class="flex justify-center" style:min-width="{exileWidth.widest}px">
+                        <span class="flex w-max" {@attach exileWidth.measure}>
+                            <FavorTo
+                                favor={offer.favor}
+                                playerId={offer.citizenPlayerId}
+                                gold={true}
+                            />
+                        </span>
+                    </span>
                 </button>
             {/each}
         </div>
