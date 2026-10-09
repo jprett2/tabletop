@@ -84,6 +84,13 @@ export type TableName =
     | 'cardChangesSearch'
     | 'cardsOpenTravel'
     | 'majorEvents'
+    | 'campaignTwoDefenders'
+    | 'defenderPlans'
+    | 'attackerPlans'
+    | 'sacrifice'
+    | 'sacrificeMixed'
+    | 'wonOutright'
+    | 'spoils'
 
 const PROPHET_ADVISERS = [
     'denizen.order.messenger',
@@ -621,8 +628,11 @@ function defeatedTable(defence: 'exile' | 'imperial'): PlayedTable {
     ])
 }
 
-/** R-5.5: the seat stands at the Chancellor's site, which the Empire rules. */
-function campaignTable(): PlayedTable {
+/**
+ * R-5.5: the seat stands at the Chancellor's site, which the Empire rules, so the Chancellor is
+ * the one defender; with the site unheld, the bandits may be attacked too.
+ */
+function campaignTable(imperialHeld = true): PlayedTable {
     const site = mapSlotId(Region.Provinces, 0)
     const state = testState(
         [
@@ -645,11 +655,134 @@ function campaignTable(): PlayedTable {
             map: allMapSlots(),
             siteCards: fixtureSitesOnTheBoard(),
             denizensBySite: { [site]: [] },
-            warbandsBySite: { [site]: { [IMPERIAL_WARBANDS]: 2 } }
+            warbandsBySite: imperialHeld ? { [site]: { [IMPERIAL_WARBANDS]: 2 } } : {}
         }
     )
     openTurn(state, 'me')
     state.activePlayerIds = ['me']
+    return tableOf(state)
+}
+
+type BattleStep =
+    'defenderPlans' | 'attackerPlans' | 'sacrifice' | 'sacrificeMixed' | 'wonOutright' | 'spoils'
+
+const WILD_MOUNTS = 'denizen.nomad.wild-mounts'
+const HORSE_ARCHERS = 'denizen.nomad.horse-archers'
+
+/**
+ * R-5.5.3 to R-5.5.7 — one step of a Campaign the seat 'att' declared against the Exile 'def' at
+ * the top Provinces site, which 'def' rules: the defender's plans, the attacker's plans after the
+ * Citizens answered, the sacrifice (one group, two, or none needed) and the spoils.
+ */
+function battleTable(step: BattleStep): PlayedTable {
+    const site = mapSlotId(Region.Provinces, 0)
+    const mixed = step === 'sacrificeMixed'
+    const rolled = {
+        attackPool: 3,
+        defensePool: 2,
+        attackRoll: range(0, 3).map(() => ({ swords: 1, hollowSwords: 0, skulls: 0 })),
+        defenseRoll: [
+            { shields: 1, doubling: false },
+            { shields: 1, doubling: false }
+        ]
+    }
+    const battle = {
+        defenderPlans: {},
+        attackerPlans: {},
+        sacrifice: { ...rolled, swords: 1, defense: 3 },
+        sacrificeMixed: { ...rolled, swords: 1, defense: 2 },
+        wonOutright: { ...rolled, swords: 3, defense: 2 },
+        spoils: { ...rolled, swords: 3, defense: 2, attackerVictorious: true }
+    }[step]
+    const state = testState(
+        [
+            testPlayer({
+                playerId: 'att',
+                color: Color.Red,
+                siteId: site,
+                warbandsOnBoard: mixed ? { att: 4, [IMPERIAL_WARBANDS]: 1 } : { att: 4 },
+                warbandsInPersonalBank: { att: 10 },
+                advisers: [{ cardId: HORSE_ARCHERS, faceUp: true }]
+            }),
+            testPlayer({
+                playerId: 'def',
+                color: Color.Yellow,
+                siteId: site,
+                favor: 4,
+                warbandsOnBoard: { def: 2 },
+                warbandsInPersonalBank: { def: 10 },
+                advisers: [{ cardId: WILD_MOUNTS, faceUp: true }]
+            }),
+            testPlayer({
+                playerId: 'ann',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: mapSlotId(Region.Hinterland, 0)
+            })
+        ],
+        {
+            machineState: {
+                defenderPlans: MachineState.CampaignPlans,
+                attackerPlans: MachineState.CampaignPlans,
+                sacrifice: MachineState.CampaignSacrifice,
+                sacrificeMixed: MachineState.CampaignSacrifice,
+                wonOutright: MachineState.CampaignSacrifice,
+                spoils: MachineState.CampaignVictory
+            }[step],
+            chancellorPlayerId: 'ann',
+            map: allMapSlots(),
+            siteCards: fixtureSitesOnTheBoard(),
+            warbandsBySite: { [site]: { def: 1 } },
+            banners: testBanners({ [Banner.PeoplesFavor]: 'def' }),
+            pendingCampaign:
+                step === 'attackerPlans'
+                    ? {
+                          declaration: {
+                              attackerPlayerId: 'att',
+                              defenderPlayerId: 'def',
+                              targets: [{ kind: CampaignTargetKind.PawnAndFavor }],
+                              attackDice: 3,
+                              plans: [],
+                              forceSiteIds: [],
+                              allyPlayerIds: [],
+                              attackerSiteId: site
+                          },
+                          toAsk: ['def'],
+                          awaitingAttackerPlans: true
+                      }
+                    : undefined,
+            campaign:
+                step === 'attackerPlans'
+                    ? undefined
+                    : {
+                          attackerPlayerId: 'att',
+                          defenderPlayerId: 'def',
+                          nonImperialPlayerIds: [],
+                          allyPlayerIds: [],
+                          targets: [
+                              { kind: CampaignTargetKind.Site, siteId: site },
+                              { kind: CampaignTargetKind.Banner, banner: Banner.PeoplesFavor },
+                              { kind: CampaignTargetKind.PawnAndFavor }
+                          ],
+                          attackPool: 3,
+                          defensePool: 2,
+                          attackRoll: [],
+                          defenseRoll: [],
+                          defense: 0,
+                          swords: 0,
+                          defendingForce: [
+                              { at: { kind: 'site', siteId: site }, owner: 'def', count: 1 }
+                          ],
+                          defendingBandits: 0,
+                          pendingDefenderPlans:
+                              step === 'defenderPlans' ? { queue: ['def'] } : undefined,
+                          ...campaignRecords(),
+                          ...battle
+                      }
+        }
+    )
+    openTurn(state, 'att')
+    state.activePlayerIds = [step === 'defenderPlans' ? 'def' : 'att']
     return tableOf(state)
 }
 
@@ -882,7 +1015,14 @@ const TABLES: Record<TableName, () => PlayedTable> = {
     cardOpensSearch: () => mushroomsTable(1),
     cardChangesSearch: () => mushroomsTable(2),
     cardsOpenTravel: travelCardsTable,
-    majorEvents: majorEventsTable
+    majorEvents: majorEventsTable,
+    campaignTwoDefenders: () => campaignTable(false),
+    defenderPlans: () => battleTable('defenderPlans'),
+    attackerPlans: () => battleTable('attackerPlans'),
+    sacrifice: () => battleTable('sacrifice'),
+    sacrificeMixed: () => battleTable('sacrificeMixed'),
+    wonOutright: () => battleTable('wonOutright'),
+    spoils: () => battleTable('spoils')
 }
 
 let session: OathGameSession | undefined
