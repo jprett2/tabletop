@@ -121,6 +121,23 @@ Gate 4: a report listing what was verified and what remains manual, written into
 5. A procedural-art guide distilled from MarraCash and Magna Grecia: tokens, board layers, card faces in SVG, the palette and coverage specs.
 6. A fix to the generator templates where they lag the current conventions (`defineGame`, `canonicalStateValidator`, `metadata.visibility`, the revision flag, the harness page), so scaffolding starts at the readiness bar.
 
-## 4. Open questions for the user
+## 4. Decisions recorded on 2026-10-09
 
-See the conversation. Answers get recorded here before the playbook is written.
+- **Next game:** not decided. The playbook is written generically, with a sibling-selection step per game kind.
+- **Rules input:** any of rulebook PDF, pasted text, card text as a sheet, or card scans; text is the preferred form. Intake must accept all four and transcribe scans into text first.
+- **Art:** drawn in code as SVG from data, with OFL fonts through `CustomFont`, when no assets are supplied. A supplied asset needs a `PERMISSIONS.md` entry.
+- **Session model:** one unattended pass made of several sessions. These run on the user's computer, not in the cloud. The design is an orchestrating session that delegates each ticket to a fresh subagent with a handoff, keeps its own context small, and writes a resumable handoff file after every ticket so a new local session can continue if the orchestrator stops.
+- **Tickets:** the fork's GitHub Issues, so `to-spec`, `to-tickets`, `triage` and the frontier queries work unchanged. The triage labels need creating in the fork once.
+- **Process home:** the fork only: `docs/agents/new-game-playbook.md` plus `.agents/skills/new-game/`, routed from `AGENTS.md`.
+- **Release:** handover is a PR to `justinkwaugh/tabletop` with the readiness report, the known deviations and the provisional rulings; Justin merges and releases.
+- **Oath lessons outside git:** none. The commit history and package docs are the whole record.
+- **Scope defaults for every first pass:** tournament support, hidden-information projection and exploration where the game hides anything, GSAP animation through `AnimationContext`, and a phone layout verified by Playwright touch scenarios.
+- **Citations:** Oath style. `R-x.y` in code, house rulings `R-x.y-H1` in `docs/rulings.md`, implementation rules `R-X.n`, departures in `docs/known-deviations.md`.
+- **First version:** 0.1.0, Alpha visibility, beta flag.
+
+## 5. Changes these decisions make to section 2
+
+- Phase 1 adds an animation plan to the UI contract: which actions animate, which run the fast fallback, and the reduced-motion behaviour, following `ANIMATION_PATTERN.md` and the `game-ui-animation` skill.
+- Phase 2 runs as orchestrator plus per-ticket subagents on the user's machine. Each ticket's issue in the fork is the handoff; the orchestrator claims it, runs it, closes it, and appends to a resumable `HANDOFF.md` in the title's docs.
+- Phase 4's hosted walkthrough uses the devcontainer's Firestore and Redis services through `local-hosted-game`.
+- Phase 5 ends with a PR to upstream, not a release.
