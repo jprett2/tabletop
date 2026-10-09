@@ -3,10 +3,10 @@ import { adviserRoom, type AdviserRoom } from './adviserDiscards.js'
 
 // R-5.1.4 — the plays a Search and a facedown adviser print alike; an adviser play reads differently in each.
 export const PLAY_LABELS = {
-    [SearchPlay.Site]: 'Play to your site',
-    [SearchPlay.RevealedVision]: 'Reveal as your Vision',
-    [SearchPlay.Conspiracy]: 'Play the Conspiracy',
-    [SearchPlay.Discard]: 'Discard it'
+    [SearchPlay.Site]: 'To your site',
+    [SearchPlay.RevealedVision]: 'As your Vision',
+    [SearchPlay.Conspiracy]: 'Play it',
+    [SearchPlay.Discard]: 'Discard'
 } as const satisfies Record<Exclude<SearchPlay, SearchPlay.Adviser>, string>
 
 // R-6.1 — a route into R-5.1.4, played faceup; the action's predicate discounts the slot being vacated.
