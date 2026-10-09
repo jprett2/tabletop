@@ -25,6 +25,7 @@
     let others = $derived(gameSession.setup.others)
     let tapped = $derived(gameSession.setup.tapped)
     let ordering = $derived(gameSession.setup.ordering)
+    let splitWhole = $derived(gameSession.setup.splitWhole)
     let canGoBack = $derived(gameSession.selection.hasManualSelection())
 
     // R-1.23.1 — the start sites by region in the board's order; one legal site is taken for the player.
@@ -45,7 +46,7 @@
 </script>
 
 <div>
-    {#if choosing && gameSession.setup.siteFavor && !adviserCardId}
+    {#if choosing && gameSession.setup.siteFavor && !ordering}
         {@const split = gameSession.setup.siteFavor}
         {@const pending = gameSession.setup.pendingSiteFavor}
         <!-- R-1.16 — "if there is not enough favor, the Chancellor chooses how to place it". -->
@@ -54,7 +55,6 @@
                 <TokenText
                     text="The bank holds {gameState.favorSupply} favor, not enough for every site. Place all of it:"
                 />
-                {gameSession.setup.siteFavorPlaced} of {gameState.favorSupply} placed.
             </div>
             {#each split as { siteCardId, favor }, index (siteCardId)}
                 <div class="mb-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
@@ -70,6 +70,11 @@
                     />
                 </div>
             {/each}
+            {#if !splitWhole}
+                <p class="text-oath-danger">
+                    {gameSession.setup.siteFavorPlaced} of {gameState.favorSupply} placed.
+                </p>
+            {/if}
         </div>
     {/if}
     {#if choosing}
@@ -141,7 +146,11 @@
             </div>
         {/if}
         <div class="flex items-start justify-between gap-2">
-            {#if siteId && adviserCardId}
+            {#if siteId && adviserCardId && !splitWhole}
+                <p class="text-sm">
+                    <TokenText text="Place all {gameState.favorSupply} favor." />
+                </p>
+            {:else if siteId && adviserCardId}
                 <p class="text-sm">
                     Keeping <span class="font-semibold">{cardName(adviserCardId)}</span>. The other
                     two go to the

@@ -51,12 +51,14 @@ import {
     played,
     searchingTable,
     setupTable,
+    shortBankTable,
     tableOf,
     type PlayedTable
 } from './sessionHarness.js'
 
 export type TableName =
     | 'setup'
+    | 'shortBank'
     | 'searching'
     | 'prophets'
     | 'offTurn'
@@ -856,6 +858,7 @@ function travelCardsTable(): PlayedTable {
 
 const TABLES: Record<TableName, () => PlayedTable> = {
     setup: setupTable,
+    shortBank: shortBankTable,
     searching: searchingTable,
     prophets: prophetsTable,
     offTurn: offTurnTable,
