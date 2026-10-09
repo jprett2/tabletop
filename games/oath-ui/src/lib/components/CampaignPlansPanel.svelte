@@ -7,6 +7,7 @@
     import { powerKey } from '@tabletop/oath'
     import { getGameSession } from '$lib/model/sessionContext.svelte.js'
     import { cardName } from '$lib/model/names.js'
+    import { PairWidth } from '$lib/model/pairWidth.svelte.js'
 
     // R-5.5.3, R-7.5.2 — the defending side's battle plans, answered knowing
     // the pools and not the roll. R-5.5.3.a: the defender first, then each ally.
@@ -35,6 +36,7 @@
 
     let usable = $derived(defence.usable)
     let busy = $derived(gameSession.busy)
+    const pairWidth = new PairWidth()
 
     let useRefusedBecause = $derived(defence.usePlansRefusedBecause)
     let noneRefusedBecause = $derived(defence.noPlansRefusedBecause)
@@ -91,26 +93,28 @@
                 <TokenText text={gameSession.humanizeReason(noneRefusedBecause) ?? ''} />
             </p>
         {/if}
-        <!-- One width for the two, the wider one's. -->
-        <div class="inline-grid auto-cols-fr grid-flow-col gap-2">
+        <!-- One width for the two, the wider one's; one per line when the two do not fit. -->
+        <div class="flex flex-wrap gap-2">
             {#if defence.plansComplete && !useRefusedBecause}
                 <button
-                    class="rounded bg-oath-primary text-oath-primary-text hover:bg-oath-primary-hover disabled:opacity-40
+                    class="shrink-0 rounded bg-oath-primary text-oath-primary-text hover:bg-oath-primary-hover disabled:opacity-40
                            px-3 py-1.5 text-sm font-semibold max-sm:min-h-11"
+                    style:min-width="{pairWidth.widest}px"
                     disabled={busy}
                     onclick={() => defence.answer(true)}
                 >
-                    Use plans
+                    <span class="inline-block w-max" {@attach pairWidth.measure}>Use plans</span>
                 </button>
             {/if}
             {#if !noneRefusedBecause}
                 <button
-                    class="rounded bg-oath-control hover:bg-oath-control-hover disabled:opacity-40 px-3 py-1.5 text-sm
+                    class="shrink-0 rounded bg-oath-control hover:bg-oath-control-hover disabled:opacity-40 px-3 py-1.5 text-sm
                            max-sm:min-h-11"
+                    style:min-width="{pairWidth.widest}px"
                     disabled={busy}
                     onclick={() => defence.answer(false)}
                 >
-                    No plans
+                    <span class="inline-block w-max" {@attach pairWidth.measure}>No plans</span>
                 </button>
             {/if}
         </div>

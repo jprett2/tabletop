@@ -8,6 +8,7 @@
     import { getGameSession } from '$lib/model/sessionContext.svelte.js'
     import { cardName, siteName, relicSiteName } from '$lib/model/names.js'
     import { spoilsSummary } from '$lib/model/spoils.js'
+    import { PairWidth } from '$lib/model/pairWidth.svelte.js'
 
     // R-5.5.5's sacrifice, then R-5.5.7's spoils: each needs the roll, or the surviving force, first.
     let gameSession = getGameSession()
@@ -54,6 +55,9 @@
     let spoilsList = $derived(
         spoilsSummary(gameState, campaign.targets, spoils.placeCounts, defenderId)
     )
+
+    const battleWidth = new PairWidth()
+    const spoilsWidth = new PairWidth()
 </script>
 
 {#snippet groupName(group: WarbandGroup)}
@@ -155,26 +159,32 @@
                 {gameSession.humanizeReason(loseRefusedBecause)}
             </p>
         {/if}
-        <!-- One width for the two, the wider one's. -->
-        <div class="inline-grid auto-cols-fr grid-flow-col gap-2">
+        <!-- One width for the two, the wider one's; one per line when the two do not fit. -->
+        <div class="flex flex-wrap gap-2">
             {#if needed > 0 && losses.winComplete && !winRefusedBecause}
                 <button
-                    class="rounded bg-oath-primary text-oath-primary-text hover:bg-oath-primary-hover disabled:opacity-40
+                    class="shrink-0 rounded bg-oath-primary text-oath-primary-text hover:bg-oath-primary-hover disabled:opacity-40
                            px-3 py-1.5 text-sm font-semibold max-sm:min-h-11"
+                    style:min-width="{battleWidth.widest}px"
                     disabled={busy}
                     onclick={() => losses.win()}
                 >
-                    Sacrifice {needed} and win
+                    <span class="inline-block w-max" {@attach battleWidth.measure}
+                        >Sacrifice {needed} and win</span
+                    >
                 </button>
             {/if}
             {#if losses.loseComplete && !loseRefusedBecause}
                 <button
-                    class="rounded bg-oath-control hover:bg-oath-control-hover disabled:opacity-40
+                    class="shrink-0 rounded bg-oath-control hover:bg-oath-control-hover disabled:opacity-40
                            px-3 py-1.5 text-sm max-sm:min-h-11"
+                    style:min-width="{battleWidth.widest}px"
                     disabled={busy}
                     onclick={() => losses.lose()}
                 >
-                    {needed > 0 ? 'Sacrifice nothing' : 'Continue'}
+                    <span class="inline-block w-max" {@attach battleWidth.measure}
+                        >{needed > 0 ? 'Sacrifice nothing' : 'Continue'}</span
+                    >
                 </button>
             {/if}
         </div>
@@ -281,26 +291,31 @@
                 <TokenText text={gameSession.humanizeReason(spoils.blockedBecause) ?? ''} />
             </p>
         {:else}
-            <!-- One width for the two, the wider one's. -->
-            <div class="inline-grid auto-cols-fr grid-flow-col gap-2">
+            <!-- One width for the two, the wider one's; one per line when the two do not fit. -->
+            <div class="flex flex-wrap gap-2">
                 <button
-                    class="rounded bg-oath-primary text-oath-primary-text hover:bg-oath-primary-hover disabled:opacity-40
+                    class="shrink-0 rounded bg-oath-primary text-oath-primary-text hover:bg-oath-primary-hover disabled:opacity-40
                            px-3 py-1.5 text-sm font-semibold max-sm:min-h-11"
+                    style:min-width="{spoilsWidth.widest}px"
                     disabled={busy}
                     onclick={() => spoils.takeSpoils(false)}
                 >
-                    Take spoils
+                    <span class="inline-block w-max" {@attach spoilsWidth.measure}>Take spoils</span
+                    >
                 </button>
                 {#if spoils.mayBurnFavor}
                     <!-- R-5.5.7.III — "may burn half their favor" is a choice, so a second button. -->
                     <button
-                        class="burn rounded bg-oath-danger-soft border border-oath-danger/60 text-oath-text hover:border-oath-danger disabled:opacity-40
+                        class="burn shrink-0 rounded bg-oath-danger-soft border border-oath-danger/60 text-oath-text hover:border-oath-danger disabled:opacity-40
                                px-3 py-1.5 text-sm font-semibold max-sm:min-h-11"
+                        style:min-width="{spoilsWidth.widest}px"
                         disabled={busy}
                         title="Take the spoils and burn half the defeated player's favor, {spoils.burnAmount} of it"
                         onclick={() => spoils.takeSpoils(true)}
                     >
-                        <TokenText text={`Take and burn ${spoils.burnAmount} favor`} />
+                        <span class="inline-block w-max" {@attach spoilsWidth.measure}
+                            ><TokenText text={`Take and burn ${spoils.burnAmount} favor`} /></span
+                        >
                     </button>
                 {/if}
             </div>
