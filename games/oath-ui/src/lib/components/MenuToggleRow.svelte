@@ -33,7 +33,7 @@
 <button
     type="button"
     {@attach pointsAt(points)}
-    class="flex w-full items-center gap-2.5 rounded-md border px-2 py-1.5 text-left disabled:opacity-40
+    class="flex items-center gap-2.5 rounded-md border px-2 py-1.5 text-left disabled:opacity-40 max-sm:min-h-11
            {on
         ? 'border-oath-accent bg-oath-accent-soft ring-1 ring-oath-accent'
         : 'border-oath-frame bg-oath-surface-raised hover:border-oath-accent'}"
@@ -46,10 +46,10 @@
         <span class="text-[15px] font-bold">{name}</span>
         {#if detail}<span class="text-xs text-oath-text-muted">{detail}</span>{/if}
     </span>
-    {#if on}
-        <span
-            class="shrink-0 rounded bg-oath-accent px-1.5 py-px text-[11px] font-extrabold text-oath-surface-raised"
-            >{tag}</span
-        >
-    {/if}
+    <!-- The tag keeps its room when off, so a row keeps its width when tapped. -->
+    <span
+        class="shrink-0 rounded bg-oath-accent px-1.5 py-px text-[11px] font-extrabold text-oath-surface-raised"
+        class:invisible={!on}
+        aria-hidden={!on}>{tag}</span
+    >
 </button>
