@@ -20,8 +20,8 @@ import {
     reasonPersistentForbidsTargets
 } from './persistent.js'
 import {
+    banditsHoldSiteFor,
     banditsRuleSite,
-    banditsServe,
     isImperialPlayer,
     rulersOfSite,
     rulesSite,
@@ -278,7 +278,7 @@ export function collectDefendingBandits(
     const scope = scopeOf(parties)
     const defenders = [defenderId, ...parties.allyPlayerIds]
     const served = sites.filter((siteId) =>
-        defenders.some((playerId) => banditsServe(state, playerId, siteId, scope))
+        defenders.some((playerId) => banditsHoldSiteFor(state, playerId, siteId, scope))
     )
     return served.length * banditsPerSite(state)
 }
