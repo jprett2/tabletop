@@ -2,6 +2,7 @@ import * as Type from 'typebox'
 import { Compile } from 'typebox/compile'
 import { Visibility } from '@tabletop/common'
 import { MachineState } from '../definition/states.js'
+import { ActionType } from '../definition/actions.js'
 import { Region, SearchPlay, Suit } from './oathEnums.js'
 import { ConspiracyPlay } from './conspiracy.js'
 import { WarbandOwner } from './warbandCounts.js'
@@ -150,7 +151,12 @@ export enum PowerQuestionKind {
     /** R-11.7 — the ruler of a Shrouded Wood chooses where a pawn leaving it goes. */
     ShroudedWoodDestination = 'shroudedWoodDestination',
     /** Law Glossary "Discard" — the order several cards go onto one pile. */
-    OrderDiscards = 'orderDiscards'
+    OrderDiscards = 'orderDiscards',
+    /**
+     * Second Wind out of turn (revision 7) — the holder's free Travel, then free Campaign, before the
+     * held turn resumes: answered by the action itself, or skipped.
+     */
+    FreeActionOutOfTurn = 'freeActionOutOfTurn'
 }
 
 /** Deed Writer — a site changing hands. */
@@ -360,6 +366,13 @@ export const PowerQuestion = Type.Union([
         /** Cards leaving play faceup, so their order is public. */
         cardIds: Type.Array(Type.String(), { maxItems: 16 }),
         fromRegion: Type.Enum(Region)
+    }),
+    Type.Object({
+        kind: Type.Literal(PowerQuestionKind.FreeActionOutOfTurn),
+        cardId: Type.String(),
+        askedPlayerId: Type.String(),
+        /** "you may travel and then may campaign" — the one asked now. */
+        action: Type.Union([Type.Literal(ActionType.Travel), Type.Literal(ActionType.Campaign)])
     })
 ])
 
@@ -434,6 +447,11 @@ export const QuestionAnswer = Type.Union([
     Type.Object({
         kind: Type.Literal(PowerQuestionKind.OrderDiscards),
         order: Type.Array(Type.Number(), { maxItems: 16 })
+    }),
+    /** The skip; the Travel or Campaign itself is the other answer. */
+    Type.Object({
+        kind: Type.Literal(PowerQuestionKind.FreeActionOutOfTurn),
+        take: Type.Literal(false)
     })
 ])
 

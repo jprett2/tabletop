@@ -112,7 +112,9 @@ const FORCED_OUTCOMES: { [K in PowerQuestionKind]: ForcedOutcome<K> } = {
     [PowerQuestionKind.SneakAttack]: (state, question) =>
         reasonCannotSneakAttack(state, question.askedPlayerId, question.defenderPlayerId),
     [PowerQuestionKind.OrderDiscards]: () => undefined,
-    [PowerQuestionKind.OrderDrawnCards]: () => undefined
+    [PowerQuestionKind.OrderDrawnCards]: () => undefined,
+    // It is asked for the action after this one, so it cannot be judged now; the skip is always legal.
+    [PowerQuestionKind.FreeActionOutOfTurn]: () => undefined
 }
 
 function forcedOutcomeOf<K extends PowerQuestionKind>(
