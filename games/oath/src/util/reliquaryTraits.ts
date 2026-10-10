@@ -40,10 +40,19 @@ export const GREEDY = 'reliquary.greedy'
 /** Greedy — "you cannot search if you would spend more than 2 Supply". */
 export const GREEDY_SUPPLY_LIMIT = 2
 
+/** Careless's Q&A — from revision 5 Vow of Poverty withholds Careless's favor, as it withholds a Trade's own. */
+function carelessWithheld(ctx: EffectContext): boolean {
+    return (
+        isAtLeastOathRevision(ctx.state, OathRevision.EngineFixes2) &&
+        cannotGainFavorFromTrade(ctx.state, ctx.playerId, ctx.particulars?.advisersOf)
+    )
+}
+
 /** Careless — one favor beside a Trade for secrets: the count shown before the Trade and the favor it gains both read it. */
 function carelessSideFavor(ctx: EffectContext): number {
     // Spelt out: `actions/trade.ts` imports this file through the modifier framework.
-    return ctx.particulars?.tradeOption === 'forSecrets' ? 1 : 0
+    if (ctx.particulars?.tradeOption !== 'forSecrets') return 0
+    return carelessWithheld(ctx) ? 0 : 1
 }
 
 const TRAIT_HOOKS: Record<string, { action: ActionType; hooks: ModifierHooks }> = {
@@ -63,7 +72,9 @@ const TRAIT_HOOKS: Record<string, { action: ActionType; hooks: ModifierHooks }> 
             tradeSecrets: (base) => Math.max(0, base - 1),
             // Careless' "(even when trading for secrets)": a secrets trade has no favor to fold into.
             tradeSideFavor: (base, ctx) => base + carelessSideFavor(ctx),
-            before: (ctx) => (carelessSideFavor(ctx) > 0 ? gainOneFavor(ctx) : undefined)
+            // A withheld favor still leaves its note, so the History says why none came.
+            before: (ctx) =>
+                ctx.particulars?.tradeOption === 'forSecrets' ? gainOneFavor(ctx) : undefined
         }
     },
     [GREEDY]: {
@@ -96,12 +107,7 @@ function gainOneFavor(ctx: EffectContext): string | undefined {
     const cardId = ctx.particulars?.cardId
     const suit = cardId ? suitOf(cardId) : undefined
     if (!suit) return undefined
-    if (
-        isAtLeastOathRevision(ctx.state, OathRevision.EngineFixes2) &&
-        cannotGainFavorFromTrade(ctx.state, ctx.playerId, ctx.particulars?.advisersOf)
-    ) {
-        return 'Careless: you cannot gain favor from Trade (Vow of Poverty)'
-    }
+    if (carelessWithheld(ctx)) return 'Careless: you cannot gain favor from Trade (Vow of Poverty)'
     const gained = gainFavorFromBank(ctx.state, ctx.playerId, suit, 1)
     return gained > 0 ? 'Careless: gained 1 favor' : 'Careless: the bank had no favor to give'
 }
