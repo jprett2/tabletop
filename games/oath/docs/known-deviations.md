@@ -10,8 +10,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 - **Vow of Renewal:** in a game created before revision 5 (R-X.4) its holder takes the two favor a Seize burns off the People's Favor; R-10.4-H1 burns them to the shared bank.
 - **Deed Writer's warbands:** in a game created before revision 5 (R-X.4) each site's warbands are checked alone against the new ruler's board, so terms can promise more warbands than the board holds in all: accepting them throws.
 - **Small Friends:** the modifiers at the pawn's own site stay usable, and those at Beast sites are opened without being declared.
-- **Vow of Poverty with Careless:** in a game created before revision 5 (R-X.4) the Vow's holder gains Careless's favor on a Trade for secrets; the Vow's Q&A withholds it.
-- **Vow of Poverty with Secret Signal:** on a Trade for secrets under Careless, the Vow's holder still gains Secret Signal's one more favor; the Vow ("You cannot gain favor from Trade") withholds it, as it withholds Careless's from revision 5.
+- **Vow of Poverty with Careless:** in a game created before revision 5 (R-X.4) the Vow's holder gains Careless's favor on a Trade for secrets, and Secret Signal's one more with it; the Vow's Q&A withholds Careless's, so the Trade gains none for Secret Signal to add to.
 - **Dragonskin Drum:** fires only on a Travel action, not on travel a power causes; its Q&A counts that travel.
 - **Ancient Binding:** in a game created before revision 5 (R-X.4) it burns faceup secrets only, so every facedown secret stays; Book Burning's Q&A gives the same words the meaning "face up or down".
 - **Obsidian Cage:** in a game created before revision 5 (R-X.4), warbands of an Exile who has since become a Citizen return as that player's own; the Q&A makes them Imperial.
@@ -37,7 +36,7 @@ deviations. Each line names the card or rule, what the engine or UI does, and wh
 
 ## Rules
 
-- **R-5.5.1.a:** in a game created before revision 5 (R-X.4), a Citizen whom it suspends still shares the Empire's sites in battle plans and the attacking force: they may use plans at sites only the Empire rules, Great Crusade, Kindred Warriors and Wild Mounts count the cards there, Fire Talkers counts the Darkest Secret another Imperial player holds, Warning Signals moves warbands at those sites, Hospital places on them, and their force counts the Empire's warbands at a Wild Allies, Captains or Vow of Union site.
+- **R-5.5.1.a:** in a game created before revision 5 (R-X.4), a Citizen whom it suspends still shares the Empire's sites in battle plans and the attacking force: they may use plans at sites only the Empire rules, Great Crusade, Kindred Warriors and Wild Mounts count the cards there, Fire Talkers counts the Darkest Secret another Imperial player holds, Warning Signals moves warbands at those sites, Hospital places on them, and their force counts the Empire's warbands at a Vow of Union site. A Wild Allies or Captains site they target also defends with the Empire's warbands there, which their force counts too (R-5.5.1.a-H1).
 - **R-6.6.2, R-6.6.3:** in a game created before revision 5 (R-X.4), a Citizen who gains warbands through a power gets their own, not Imperial ones; Muster already gives Imperial ones.
 - **R-11.7, Shrouded Wood:** in a game created before revision 6 (R-X.4), a Travel out of a Wood an enemy rules pays the Wood's 2 with the Travel, before the site is known, so Decadent is not applied, Tyrant does not fire at the site picked, and the ruler may pick a site the traveller could not have paid for.
 - **R-9.4:** the state records every back that goes onto a pile, but the table draws only the top card's back and the count.
