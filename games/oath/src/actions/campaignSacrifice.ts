@@ -14,7 +14,7 @@ import {
 import { concludeCampaign } from '../util/campaignEnd.js'
 import { MachineState } from '../definition/states.js'
 import { isImperialPlayer, rulingWarbandOwners } from '../util/rule.js'
-import { scopeOf } from '../util/campaign.js'
+import { battleScopeOf, scopeOf } from '../util/campaign.js'
 import { BANDITS_PLAN_USER, plansUsedBy, sideOf, defendingPlayerIds } from '../util/battlePlans.js'
 import { BattlePlanSide } from '../data/cardPowers.js'
 import { ActionType } from '../definition/actions.js'
@@ -516,7 +516,11 @@ export class HydratedCampaignSacrifice
         const groups = warbandGroupsAtSites(
             state,
             campaign.forceSiteIds,
-            rulingWarbandOwners(state, campaign.attackerPlayerId)
+            rulingWarbandOwners(
+                state,
+                campaign.attackerPlayerId,
+                battleScopeOf(state, partiesOf(campaign))
+            )
         )
         let toRemove = alreadySacrificed
         for (const owner of boardOwnersOwnFirst(state, campaign.attackerPlayerId)) {

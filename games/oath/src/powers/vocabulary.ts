@@ -16,7 +16,7 @@ import {
     boardWarbandGroups
 } from '../util/force.js'
 import { suitOf } from '../data/cardRegistry.js'
-import { warbandsAt, warbandsFreeToLeave } from '../util/rule.js'
+import { type ImperialScope, warbandsAt, warbandsFreeToLeave } from '../util/rule.js'
 import { ruledFaceupCardIds, siteHolding } from '../util/access.js'
 import { burnFromBanner } from '../util/seize.js'
 import { countOf, adjustCount, warbandEntries } from '../util/warbands.js'
@@ -236,9 +236,10 @@ export function favorObtainableFromPicks(
 export function ruledCardsOfSuit(
     state: HydratedOathGameState,
     playerId: string,
-    suit: Suit
+    suit: Suit,
+    scope?: ImperialScope
 ): string[] {
-    return ruledFaceupCardIds(state, playerId).filter((id) => suitOf(id) === suit)
+    return ruledFaceupCardIds(state, playerId, scope).filter((id) => suitOf(id) === suit)
 }
 
 export function moveFavorBetweenBanks(

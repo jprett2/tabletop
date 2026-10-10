@@ -3,6 +3,8 @@ import { Suit } from '../model/oathEnums.js'
 import { PowerTiming, powerIndexOf } from '../data/cardPowers.js'
 import { suitOf } from '../data/cardRegistry.js'
 import { ruledFaceupCardIds } from '../util/access.js'
+import { battleScopeOf } from '../util/campaign.js'
+import type { ImperialScope } from '../util/rule.js'
 import { isLockedFor } from '../util/locked.js'
 import { askQuestion } from '../util/questions.js'
 import { PowerQuestionKind } from '../model/question.js'
@@ -11,8 +13,12 @@ import { registerBattlePlan, registerPersistent } from './registry.js'
 const WILD_MOUNTS = 'denizen.nomad.wild-mounts'
 
 /** R-10.21, R-10.14 — a facedown adviser has no suit (R-5.1.4.II), and a locked card cannot be discarded (R-7.2.2). */
-function beastCardsToDiscard(state: HydratedOathGameState, playerId: string): string[] {
-    return ruledFaceupCardIds(state, playerId).filter(
+function beastCardsToDiscard(
+    state: HydratedOathGameState,
+    playerId: string,
+    scope: ImperialScope | undefined
+): string[] {
+    return ruledFaceupCardIds(state, playerId, scope).filter(
         (cardId) => suitOf(cardId) === Suit.Beast && !isLockedFor(state, playerId, cardId)
     )
 }
@@ -22,7 +28,11 @@ registerBattlePlan(WILD_MOUNTS, powerIndexOf(WILD_MOUNTS, PowerTiming.BattlePlan
     hooks: {
         sparesEndDiscards: (ctx, owedCardIds) => {
             const planCardIds = owedCardIds.filter((cardId) => suitOf(cardId) === Suit.Nomad)
-            const insteadCardIds = beastCardsToDiscard(ctx.state, ctx.playerId)
+            const insteadCardIds = beastCardsToDiscard(
+                ctx.state,
+                ctx.playerId,
+                battleScopeOf(ctx.state, ctx.campaign.parties)
+            )
             return planCardIds.length > 0 && insteadCardIds.length > 0
                 ? { planCardIds, insteadCardIds }
                 : undefined

@@ -5,10 +5,11 @@ export enum OathRevision {
     TurnFlow = 1,
     CostsAndFacedownModifiers = 2,
     PlanCostsAndSearchPlays = 3,
-    CitizenGainsImperial = 4
+    CitizenGainsImperial = 4,
+    CampaignScopeInBattle = 5
 }
 
-export const CURRENT_OATH_REVISION = OathRevision.CitizenGainsImperial
+export const CURRENT_OATH_REVISION = OathRevision.CampaignScopeInBattle
 
 export function isAtLeastOathRevision(
     state: Pick<OathGameState, 'oathRevision'>,

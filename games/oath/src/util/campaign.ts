@@ -31,6 +31,7 @@ import {
 import { boardWarbandGroups, warbandGroupsAtSites } from './force.js'
 import { pawnSiteId } from './pawn.js'
 import { siteLockedFor } from './locked.js'
+import { isAtLeastOathRevision, OathRevision } from './revision.js'
 
 /** R-5.5.1, R-5.5.2 */
 export interface CampaignParties {
@@ -46,6 +47,16 @@ export interface CampaignParties {
 
 export function scopeOf(parties: CampaignParties): ImperialScope {
     return { nonImperialPlayerIds: parties.nonImperialPlayerIds }
+}
+
+/** R-5.5.1.a for battle plans and the attacking force; R-X.4 — before revision 5 they ignored it. */
+export function battleScopeOf(
+    state: HydratedOathGameState,
+    parties: CampaignParties
+): ImperialScope | undefined {
+    return isAtLeastOathRevision(state, OathRevision.CampaignScopeInBattle)
+        ? scopeOf(parties)
+        : undefined
 }
 
 /** R-5.5.1.a */
