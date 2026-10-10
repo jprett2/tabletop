@@ -6,6 +6,7 @@ import {
     CampaignSacrifice,
     CampaignTargetKind,
     Campaign,
+    ConsentRequestKind,
     HydratedCampaignSacrifice,
     HydratedOathGameState,
     EndActPhase,
@@ -13,6 +14,7 @@ import {
     IMPERIAL_WARBANDS,
     LetPeek,
     LetPeekSubjectKind,
+    isLetPeek,
     MachineState,
     MoveWarbands,
     OathRevision,
@@ -36,7 +38,9 @@ import {
     mapSlotId,
     mapSlotsFor,
     reliquarySlotId,
+    type CitizenshipTerms,
     type CitizenshipTransfer,
+    type LetPeekSubject,
     type OathPlayerState,
     type OathProjectedState,
     type PowerQuestion,
@@ -134,7 +138,13 @@ export type TableName =
     | 'warbandGiveAsked'
     | 'offerCitizenship'
     | 'offerCitizenshipToOne'
+    | 'offerCitizenshipSilenced'
+    | 'offerCitizenshipSelf'
     | 'everyMinor'
+    | 'show'
+    | 'harpSearch'
+    | 'usePower'
+    | 'showOne'
     | 'exileCitizens'
     | 'selfExile'
     | 'oathkeeperTie'
@@ -1629,6 +1639,85 @@ function mushroomsTable(supply: number): PlayedTable {
     return tableOf(state)
 }
 
+/** R-7.4: the seat holds Truthful Harp, a Search modifier whose printed text carries emphasis marks. */
+function harpSearchTable(): PlayedTable {
+    const [home] = mapSlotsFor(Region.Cradle)
+    const state = testState(
+        [
+            testPlayer({
+                playerId: 'me',
+                color: Color.Red,
+                siteId: home,
+                supply: 4,
+                relicIds: ['relic.truthful-harp']
+            }),
+            testPlayer({
+                playerId: 'ann',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: mapSlotId(Region.Provinces, 0)
+            })
+        ],
+        {
+            machineState: MachineState.ActPhase,
+            chancellorPlayerId: 'ann',
+            map: allMapSlots(),
+            siteCards: fixtureSitesOnTheBoard(),
+            denizensBySite: { [home]: [] },
+            discardPileCounts: { cradle: 2, provinces: 0, hinterland: 0 },
+            vault: testVaultWithDiscards({
+                [Region.Cradle]: ['denizen.hearth.book-binders', 'denizen.order.council-seat']
+            })
+        }
+    )
+    openTurn(state, 'me')
+    state.activePlayerIds = ['me']
+    return tableOf(state)
+}
+
+/**
+ * R-7.4, R-6.2: Use a power with a card that makes a Search possible (Mushrooms, 1 Supply), an
+ * adviser that changes a Travel (Tents) and an "Action:" power that costs a secret (the Whistle,
+ * which picks a pawn at another site).
+ */
+function usePowerTable(): PlayedTable {
+    const [home] = mapSlotsFor(Region.Cradle)
+    const state = testState(
+        [
+            testPlayer({
+                playerId: 'me',
+                color: Color.Red,
+                siteId: home,
+                supply: 1,
+                favor: 2,
+                secrets: 3,
+                relicIds: ['relic.whistle'],
+                advisers: [{ cardId: 'denizen.nomad.tents', faceUp: true }]
+            }),
+            testPlayer({
+                playerId: 'ann',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: mapSlotId(Region.Provinces, 0)
+            })
+        ],
+        {
+            machineState: MachineState.ActPhase,
+            chancellorPlayerId: 'ann',
+            map: allMapSlots(),
+            siteCards: fixtureSitesOnTheBoard(),
+            denizensBySite: { [home]: ['denizen.beast.mushrooms'] },
+            discardPileCounts: { cradle: 2, provinces: 0, hinterland: 0 },
+            vault: testVaultWithDiscards({
+                [Region.Cradle]: ['denizen.hearth.book-binders', 'denizen.order.council-seat']
+            })
+        }
+    )
+    openTurn(state, 'me')
+    state.activePlayerIds = ['me']
+    return tableOf(state)
+}
+
 /** R-9.4: Tavern Songs at the seat's site peeks at the Cradle discard pile, which nobody else sees. */
 function tavernSongsTable(): PlayedTable {
     const [home] = mapSlotsFor(Region.Cradle)
@@ -2079,44 +2168,52 @@ const RELIQUARY_KNOWN = { peekedRelicSlotIds: Object.keys(RELIQUARY), peekedReli
 
 /**
  * R-6.6.1 — the Grand Scepter's holder, holding both banners, in their Act Phase with every
- * Reliquary relic known to them (R-6.4-H1); Cole is an Exile, and Ann too unless `oneExile`.
+ * Reliquary relic known to them (R-6.4-H1). `two`: Cole and Ann are Exiles; `one`: Cole alone;
+ * `silenced`: both, Cole with Vow of Silence, so he may give no secrets; `self`: the holder is the
+ * one Exile, Cole a Citizen and Ann the Chancellor.
  */
-function offerCitizenshipTable(oneExile: boolean): PlayedTable {
+function offerCitizenshipTable(exiles: 'two' | 'one' | 'silenced' | 'self'): PlayedTable {
     const [home] = mapSlotsFor(Region.Cradle)
+    const self = exiles === 'self'
     const state = testState(
         [
             testPlayer({
                 playerId: 'jacob',
-                color: Color.Purple,
-                status: PlayerStatus.Chancellor,
+                color: self ? Color.Yellow : Color.Purple,
+                status: self ? PlayerStatus.Exile : PlayerStatus.Chancellor,
                 siteId: home,
                 favor: 4,
                 secrets: 2,
                 relicIds: ['relic.grand-scepter'],
-                warbandsInPersonalBank: { [IMPERIAL_WARBANDS]: 16 },
+                warbandsInPersonalBank: self ? { jacob: 14 } : { [IMPERIAL_WARBANDS]: 16 },
                 ...RELIQUARY_KNOWN
             }),
             testPlayer({
                 playerId: 'cole',
                 color: Color.Red,
-                status: PlayerStatus.Exile,
+                status: self ? PlayerStatus.Citizen : PlayerStatus.Exile,
                 siteId: home,
                 favor: 3,
                 secrets: 1,
+                advisers: exiles === 'silenced' ? [faceup('denizen.arcane.vow-of-silence')] : [],
                 warbandsInPersonalBank: { cole: 14 }
             }),
             testPlayer({
                 playerId: 'ann',
-                color: Color.Blue,
-                status: oneExile ? PlayerStatus.Citizen : PlayerStatus.Exile,
+                color: self ? Color.Purple : Color.Blue,
+                status: self
+                    ? PlayerStatus.Chancellor
+                    : exiles === 'one'
+                      ? PlayerStatus.Citizen
+                      : PlayerStatus.Exile,
                 siteId: home,
                 favor: 2,
-                warbandsInPersonalBank: { ann: 14 }
+                warbandsInPersonalBank: self ? { [IMPERIAL_WARBANDS]: 16 } : { ann: 14 }
             })
         ],
         {
             machineState: MachineState.ActPhase,
-            chancellorPlayerId: 'jacob',
+            chancellorPlayerId: self ? 'ann' : 'jacob',
             map: allMapSlots(),
             siteCards: fixtureSitesOnTheBoard(),
             denizensBySite: { [home]: [] },
@@ -2184,6 +2281,63 @@ function everyMinorTable(): PlayedTable {
     )
     openTurn(state, 'jacob')
     state.activePlayerIds = ['jacob']
+    return tableOf(state)
+}
+
+const SWARM = 'denizen.beast.insect-swarm'
+const FORCED_LABOR = 'denizen.order.forced-labor'
+
+/**
+ * R-6.1, R-6.6.1, R-9.4 — what Show offers: Jacob, the Chancellor, holds the Grand Scepter from an
+ * earlier turn, knows every Reliquary relic (R-6.4-H1) and has Insect Swarm facedown; Cole is an
+ * Exile with Forced Labor facedown, and Ann a Citizen. `on` is the seat whose Act Phase it is.
+ */
+function showTable(on: 'jacob' | 'cole'): PlayedTable {
+    const [home] = mapSlotsFor(Region.Cradle)
+    const state = testState(
+        [
+            testPlayer({
+                playerId: 'jacob',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: home,
+                favor: 4,
+                secrets: 2,
+                relicIds: ['relic.grand-scepter'],
+                advisers: [{ cardId: SWARM, faceUp: false }],
+                warbandsInPersonalBank: { [IMPERIAL_WARBANDS]: 16 },
+                ...RELIQUARY_KNOWN
+            }),
+            testPlayer({
+                playerId: 'cole',
+                color: Color.Red,
+                status: PlayerStatus.Exile,
+                siteId: home,
+                favor: 3,
+                secrets: 1,
+                advisers: [{ cardId: FORCED_LABOR, faceUp: false }],
+                warbandsInPersonalBank: { cole: 14 }
+            }),
+            testPlayer({
+                playerId: 'ann',
+                color: Color.Blue,
+                status: PlayerStatus.Citizen,
+                siteId: home,
+                favor: 2,
+                warbandsInPersonalBank: { ann: 14 }
+            })
+        ],
+        {
+            machineState: MachineState.ActPhase,
+            chancellorPlayerId: 'jacob',
+            map: allMapSlots(),
+            siteCards: fixtureSitesOnTheBoard(),
+            denizensBySite: { [home]: [] },
+            vault: testVaultWithRelics(RELIQUARY)
+        }
+    )
+    openTurn(state, on)
+    state.activePlayerIds = [on]
     return tableOf(state)
 }
 
@@ -2284,9 +2438,15 @@ function woodRulerTable(): PlayedTable {
 
 const TABLES: Record<TableName, () => PlayedTable> = {
     warbandGiveAsked: warbandGiveAskedTable,
-    offerCitizenship: () => offerCitizenshipTable(false),
-    offerCitizenshipToOne: () => offerCitizenshipTable(true),
+    offerCitizenship: () => offerCitizenshipTable('two'),
+    offerCitizenshipToOne: () => offerCitizenshipTable('one'),
+    offerCitizenshipSilenced: () => offerCitizenshipTable('silenced'),
+    offerCitizenshipSelf: () => offerCitizenshipTable('self'),
     everyMinor: everyMinorTable,
+    show: () => showTable('jacob'),
+    showOne: () => showTable('cole'),
+    harpSearch: harpSearchTable,
+    usePower: usePowerTable,
     exileCitizens: exileCitizensTable,
     selfExile: selfExileTable,
     setup: setupTable,
@@ -2481,6 +2641,14 @@ export function letPeekState(): { open: boolean; staged: boolean; action?: strin
     }
 }
 
+/** The last Action sent, when it let another player peek: whom, and what (R-6.1, R-6.6.1). */
+export function lastLetPeek(): { toPlayerId: string; subject: LetPeekSubject } | undefined {
+    const action = current().actions.at(-1)
+    return isLetPeek(action)
+        ? { toPlayerId: action.toPlayerId, subject: action.subject }
+        : undefined
+}
+
 /** The seat on screen travels, sent as its own client would send it (R-5.6). */
 export async function seatTravels(siteId: string): Promise<void> {
     const table = current()
@@ -2583,6 +2751,13 @@ export function standing(): {
             ? { asked: { kind: pending.request.kind, askedPlayerId: pending.askedPlayerId } }
             : {})
     }
+}
+
+/** R-6.6.1 — the terms of the Citizenship offer the game waits on: `none` when it carries none. */
+export function offeredCitizenshipTerms(): CitizenshipTerms | 'none' | undefined {
+    const request = current().gameState.pendingConsent?.request
+    if (request?.kind !== ConsentRequestKind.CitizenshipOffer) return undefined
+    return request.terms ?? 'none'
 }
 
 export function defeatPicks(): { required: number; picked: number[]; blockedBecause?: string } {

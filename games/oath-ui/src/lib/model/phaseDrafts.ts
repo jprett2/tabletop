@@ -22,6 +22,7 @@ import {
     citizenshipReplacementGroups,
     endDieIsRolled,
     powerKey,
+    reasonTransferInvalid,
     requiredFavorSteps,
     usableFavor,
     type CitizenshipTerms,
@@ -548,8 +549,19 @@ export class CitizenshipDraft implements PanelDraft {
         return spaces.length === 1 ? spaces[0].slotId : undefined
     }
 
+    /** R-6.6.1 — "any Exile (including yourself)". */
+    get offersSelf(): boolean {
+        return this.exilePlayerId !== undefined && this.exilePlayerId === this.playerId
+    }
+
+    // Terms are set once the relic is promised, and never in an offer to yourself: an exchange
+    // with yourself moves nothing.
+    private get termsOpen(): boolean {
+        return this.reliquarySlotId !== undefined && !this.offersSelf
+    }
+
     get offerTerms(): OfferTerms {
-        return this.reliquarySlotId ? (this.flow.value('terms')?.at(-1) ?? NO_TERMS) : NO_TERMS
+        return this.termsOpen ? (this.flow.value('terms')?.at(-1) ?? NO_TERMS) : NO_TERMS
     }
 
     // R-6.6.1 — favor, secrets, banners and non-Reliquary relics, each way. Omitted rather than
@@ -615,20 +627,54 @@ export class CitizenshipDraft implements PanelDraft {
     }
 
     setTerm(term: TermCount, amount: number): void {
-        if (this.reliquarySlotId) {
+        if (this.termsOpen) {
             this.pickTerms({ ...this.offerTerms, [term]: Math.max(0, amount) })
         }
     }
 
+    /**
+     * R-6.6.1, R-10.8 — a side's favor or secrets as a row of tokens, one per unit it holds; the
+     * engine's own check of that side's promise says how many of them it may add (Vow of Silence:
+     * none of its secrets).
+     */
+    tokenRow(term: TermCount): { held: number; addable: number; picked: number } {
+        const exilePlayerId = this.exilePlayerId
+        assertExists(exilePlayerId, 'The terms are set once the Exile is chosen')
+        const gives = term === 'givenFavor' || term === 'givenSecrets'
+        const fromId = gives ? this.offererId : exilePlayerId
+        const toId = gives ? exilePlayerId : this.offererId
+        const favor = term === 'givenFavor' || term === 'askedFavor'
+        const holdings = this.holdingsOf(fromId)
+        const held = favor ? holdings.favor : holdings.secrets
+        const allowed = (count: number) =>
+            reasonTransferInvalid(
+                this.session.gameState,
+                fromId,
+                toId,
+                favor ? { favor: count } : { secrets: count }
+            ) === undefined
+        let addable = held
+        while (addable > 0 && !allowed(addable)) addable--
+        return { held, addable, picked: this.offerTerms[term] }
+    }
+
+    /** A tap on the Nth token sets the count to N; a tap on the token at the count sets 0. */
+    tapToken(term: TermCount, count: number): void {
+        if (!this.termsOpen) return
+        const row = this.tokenRow(term)
+        if (count < 1 || count > row.addable) return
+        this.pickTerms({ ...this.offerTerms, [term]: count === row.picked ? 0 : count })
+    }
+
     toggleRelic(term: 'givenRelics' | 'askedRelics', relicId: string, on: boolean): void {
         const side = term === 'givenRelics' ? 'offerer' : 'exile'
-        if (!this.reliquarySlotId || !this.holdings[side].relicIds.includes(relicId)) return
+        if (!this.termsOpen || !this.holdings[side].relicIds.includes(relicId)) return
         this.setList(term, relicId, on)
     }
 
     toggleBanner(term: 'givenBanners' | 'askedBanners', banner: Banner, on: boolean): void {
         const side = term === 'givenBanners' ? 'offerer' : 'exile'
-        if (!this.reliquarySlotId || !this.holdings[side].banners.includes(banner)) return
+        if (!this.termsOpen || !this.holdings[side].banners.includes(banner)) return
         this.setList(term, banner, on)
     }
 
@@ -751,14 +797,50 @@ export class ConsentDraft extends OneStepDraft<string[]> {
     }
 }
 
-/** R-9.4 — outside this seat's Act Phase the seat card opens the let-peek picker on its own; opening it is the pick. */
-export class SeatCardPeekDraft extends OneStepDraft<true> {
+type SeatCardPeekValueByStage = { open: true; subject: string }
+
+const SEAT_CARD_PEEK_STAGE_ORDER = ['open', 'subject'] as const
+const _seatCardPeekStagesAreCovered: StagesCover<
+    SeatCardPeekValueByStage,
+    typeof SEAT_CARD_PEEK_STAGE_ORDER
+> = true
+void _seatCardPeekStagesAreCovered
+
+/**
+ * R-9.4 — outside this seat's Act Phase the seat card opens the let-peek picker on its own:
+ * opening it is one pick, and the card to show is the next.
+ */
+export class SeatCardPeekDraft implements PanelDraft {
+    private flow = new StagedFlow<SeatCardPeekValueByStage>(SEAT_CARD_PEEK_STAGE_ORDER)
+
     get open(): boolean {
-        return this.stored === true
+        return this.flow.value('open') === true
+    }
+
+    /** The key of the card tapped to show (`letPeekKey`), if any. */
+    get subject(): string | undefined {
+        return this.flow.value('subject')
     }
 
     toggle(): void {
         if (this.open) this.reset()
-        else this.store(true)
+        else this.flow.set('open', true)
+    }
+
+    pick(key: string): void {
+        assert(this.open, 'A card to show is picked in the open picker')
+        this.flow.set('subject', key)
+    }
+
+    hasManualSelection(): boolean {
+        return this.flow.hasManualSelection()
+    }
+
+    back(): boolean {
+        return this.flow.back() !== undefined
+    }
+
+    reset(): void {
+        this.flow.reset()
     }
 }

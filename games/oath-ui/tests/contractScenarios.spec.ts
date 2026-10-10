@@ -924,7 +924,7 @@ const minor = (page: Page, label: string) =>
 
 /** The Citizenship offer's builder (R-6.6.1): to whom, which relic, then the terms. */
 test.describe('offering Citizenship', () => {
-    test('“To:” the Exiles’ chips, “Promise <chip> one relic.”, then the terms as rows and “Offer” alone', async ({
+    test('“To:” the Exiles’ chips, “Promise <chip> one relic.”, then the terms by side and “Offer” alone', async ({
         page
     }) => {
         await openTable(page, 'offerCitizenship')
@@ -958,11 +958,13 @@ test.describe('offering Citizenship', () => {
         await expect(darkest).toHaveAttribute('aria-pressed', 'true')
         await expect(answer(page, 'the People’s Favor')).toHaveAttribute('aria-pressed', 'false')
 
-        // The counts given are gold once picked; the counts asked stay plain.
+        // The counts are token rows: a tap on the second favor gives 2, the tokens up to it ringed.
         await answer(page, 'you give 2 favor').click()
-        await expect(answer(page, 'you give 2 favor')).toHaveClass(/text-oath-accent/)
-        await answer(page, 'they give 1 secrets').click()
-        await expect(answer(page, 'they give 1 secrets')).not.toHaveClass(/text-oath-accent/)
+        await expect(answer(page, 'you give 1 favor')).toHaveAttribute('aria-pressed', 'true')
+        await expect(answer(page, 'you give 2 favor')).toHaveAttribute('aria-pressed', 'true')
+        await expect(answer(page, 'you give 3 favor')).toHaveAttribute('aria-pressed', 'false')
+        await answer(page, 'they give 1 secret').click()
+        await expect(answer(page, 'they give 1 secret')).toHaveAttribute('aria-pressed', 'true')
 
         await answer(page, 'Offer').click()
         await expect.poll(async () => (await call(page, 'standing')).asked).toEqual({
@@ -982,7 +984,7 @@ test.describe('offering Citizenship', () => {
         await answer(page, 'you give 1 favor').click()
 
         await undoButton(page).click()
-        await expect(answer(page, 'you give 0 favor')).toHaveAttribute('aria-pressed', 'true')
+        await expect(answer(page, 'you give 1 favor')).toHaveAttribute('aria-pressed', 'false')
         await expect(answer(page, 'the Darkest Secret')).toHaveAttribute('aria-pressed', 'true')
         await undoButton(page).click()
         await expect(answer(page, 'the Darkest Secret')).toHaveAttribute('aria-pressed', 'false')
@@ -1008,6 +1010,180 @@ test.describe('offering Citizenship', () => {
         await expect(grid(page)).toContainText('Act Phase')
         expect((await call(page, 'tableFacts')).staged).toBeUndefined()
     })
+})
+
+/** An element's size in layout pixels: the panel may be drawn scaled to fit. */
+const layoutSizeOf = (locator: Locator) =>
+    locator.evaluate((element) =>
+        element instanceof HTMLElement ? { width: element.offsetWidth, height: element.offsetHeight } : undefined
+    )
+
+/** The scale the last fitted panel is drawn at. */
+const panelScale = (page: Page) =>
+    page
+        .locator('.fit__inner')
+        .last()
+        .evaluate((inner) => new DOMMatrixReadOnly(getComputedStyle(inner).transform).a)
+
+/** Opens the offer to Cole with the Cup of Plenty promised: the terms. */
+async function offerToCole(page: Page, table: TableFixture.TableName = 'offerCitizenship', exile = 'cole') {
+    await openTable(page, table)
+    await minor(page, 'Offer Citizenship').click()
+    await grid(page).getByRole('button', { name: exile, exact: true }).click()
+    await panelCards(page).filter({ has: page.getByRole('img', { name: 'Cup of Plenty' }) }).click()
+    await expect(grid(page).locator('p').filter({ hasText: /^To/ })).toHaveText(`To ${exile}`)
+}
+
+const FAVOR_TOKENS = (who: 'you' | 'they', count: number) =>
+    Array.from({ length: count }, (_, index) => `${who} give ${index + 1} favor`)
+
+/**
+ * The offer's terms (R-6.6.1): the promised relic is the one large card, each side's relics and
+ * banners small tiles ringed once added, favor and secrets token rows; the sides side by side on
+ * a desktop and stacked on a phone; no summary line; an Exile offering himself gets no terms.
+ */
+test.describe('the Citizenship offer’s terms', () => {
+    test('the promised relic is the 56 px card, not a button; the Scepter and banners are 40 px tiles, unringed until tapped', async ({
+        page
+    }) => {
+        await offerToCole(page)
+        const promised = grid(page).getByRole('img', { name: 'Cup of Plenty', exact: true })
+        expect(await layoutSizeOf(promised)).toEqual({ width: 56, height: 56 })
+        await expect(promised.locator('xpath=ancestor::button')).toHaveCount(0)
+        await expect(grid(page).getByRole('button', { name: 'Enlarge Cup of Plenty', exact: true })).toHaveCount(1)
+
+        // Picks start empty: the Scepter is listed, not in the offer until tapped.
+        const scepter = answer(page, 'The Grand Scepter')
+        await expect(scepter).toHaveAttribute('aria-pressed', 'false')
+        expect(await layoutSizeOf(scepter.locator('img'))).toEqual({ width: 40, height: 40 })
+        await expect(grid(page).getByRole('button', { name: 'Enlarge The Grand Scepter', exact: true })).toHaveCSS('width', '24px')
+        for (const [name, width] of [['the Darkest Secret', 80], ['the People’s Favor', 80]] as const) {
+            const banner = answer(page, name)
+            await expect(banner).toHaveAttribute('aria-pressed', 'false')
+            expect(await layoutSizeOf(banner.locator('img'))).toEqual({ width, height: 40 })
+        }
+        // No hover: a tile has no hover ring and no tooltip.
+        for (const tile of [scepter, answer(page, 'the Darkest Secret')]) {
+            await expect(tile).not.toHaveAttribute('title')
+            await expect(tile.locator('img')).not.toHaveAttribute('title')
+            expect(await tile.getAttribute('class')).not.toMatch(/hover:/)
+        }
+        await expect(scepter).toHaveClass(/ring-1/)
+        await scepter.click()
+        await expect(scepter).toHaveAttribute('aria-pressed', 'true')
+        await expect(scepter).toHaveClass(/ring-2/)
+        await expect(scepter).toHaveClass(/ring-oath-accent/)
+    })
+
+    test('favor and secrets are token rows: the Nth token gives N, the token at the count gives 0', async ({ page }) => {
+        await offerToCole(page)
+        // One token per unit held, none at the start, and no "0".
+        const tokens = [...FAVOR_TOKENS('you', 4), 'you give 1 secret', 'you give 2 secrets', ...FAVOR_TOKENS('they', 3), 'they give 1 secret']
+        for (const name of tokens) {
+            await expect(answer(page, name)).toHaveAttribute('aria-pressed', 'false')
+            await expect(answer(page, name)).toBeEnabled()
+            expect(await layoutSizeOf(answer(page, name))).toEqual({ width: 34, height: 32 })
+        }
+        await expect(grid(page).getByRole('button', { name: /give 0 / })).toHaveCount(0)
+        await expect(grid(page).getByRole('button', { name: 'you give 5 favor', exact: true })).toHaveCount(0)
+
+        const pressed = async () =>
+            Promise.all(FAVOR_TOKENS('you', 4).map((name) => answer(page, name).getAttribute('aria-pressed')))
+        await answer(page, 'you give 2 favor').click()
+        expect(await pressed()).toEqual(['true', 'true', 'false', 'false'])
+        await answer(page, 'you give 4 favor').click()
+        expect(await pressed()).toEqual(['true', 'true', 'true', 'true'])
+        await answer(page, 'you give 1 favor').click()
+        expect(await pressed()).toEqual(['true', 'false', 'false', 'false'])
+        await answer(page, 'you give 1 favor').click()
+        expect(await pressed()).toEqual(['false', 'false', 'false', 'false'])
+
+        // A token in the deal is ringed gold; its picture is full strength, the others faint.
+        await answer(page, 'they give 1 secret').click()
+        await expect(answer(page, 'they give 1 secret')).toHaveClass(/ring-oath-accent/)
+        await expect(answer(page, 'they give 1 secret').locator('img')).toHaveCSS('opacity', '1')
+        await expect(answer(page, 'they give 1 favor').locator('img')).not.toHaveCSS('opacity', '1')
+    })
+
+    test('the sides stand side by side, and nothing but “Offer” follows them', async ({ page }) => {
+        await offerToCole(page)
+        const give = await boxOf(grid(page).getByText('You give', { exact: true }))
+        const get = await boxOf(grid(page).getByText('You get', { exact: true }))
+        expect(Math.abs(give.y - get.y)).toBeLessThan(1)
+        expect(get.x).toBeGreaterThan(give.x + 200)
+        await answer(page, 'you give 2 favor').click()
+        await expect(grid(page)).toHaveText(/^\s*Offer Citizenship\s*To cole\s*You give\s*You get\s*Offer\s*$/)
+    })
+
+    test('a token a side holds none of has no control', async ({ page }) => {
+        await offerToCole(page, 'offerCitizenship', 'ann')
+        for (const name of FAVOR_TOKENS('they', 2)) await expect(answer(page, name)).toBeVisible()
+        await expect(grid(page).getByRole('button', { name: /^they give \d+ secrets?$/ })).toHaveCount(0)
+        await expect(grid(page).getByRole('button', { name: /^you give \d+ secrets?$/ })).toHaveCount(2)
+    })
+
+    test('a token the rules refuse is not tappable and keeps its place', async ({ page }) => {
+        await offerToCole(page, 'offerCitizenshipSilenced')
+        const secret = answer(page, 'they give 1 secret')
+        await expect(secret).toBeVisible()
+        await expect(secret).toBeDisabled()
+        expect(await layoutSizeOf(secret)).toEqual({ width: 34, height: 32 })
+        await expect(answer(page, 'they give 1 favor')).toBeEnabled()
+        await expect(answer(page, 'Offer')).toBeEnabled()
+    })
+
+    test('an Exile offering himself gets no terms: the promised relic and “Offer”', async ({ page }) => {
+        await openTable(page, 'offerCitizenshipSelf')
+        await minor(page, 'Offer Citizenship').click()
+        await expect(grid(page)).not.toContainText('To:')
+        await panelCards(page).filter({ has: page.getByRole('img', { name: 'Cup of Plenty' }) }).click()
+        await expect(grid(page)).toContainText('You give')
+        await expect(grid(page)).not.toContainText('You get')
+        await expect(grid(page).getByRole('img', { name: 'Cup of Plenty', exact: true })).toBeVisible()
+        await expect(grid(page).getByRole('button', { name: /give \d+ (favor|secrets?)$/ })).toHaveCount(0)
+        await expect(grid(page).getByRole('button', { name: 'The Grand Scepter', exact: true })).toHaveCount(0)
+        await expect(grid(page).getByRole('button', { name: 'the Darkest Secret', exact: true })).toHaveCount(0)
+        await answer(page, 'Offer').click()
+        await expect.poll(async () => (await call(page, 'standing')).asked).toEqual({
+            kind: 'citizenshipOffer',
+            askedPlayerId: 'jacob'
+        })
+        expect(await call(page, 'offeredCitizenshipTerms')).toBe('none')
+    })
+
+    for (const viewport of [
+        { width: 402, height: 874 },
+        { width: 375, height: 812 }
+    ]) {
+        test.describe(`on a ${viewport.width} px phone`, () => {
+            test.use({ viewport })
+
+            test('the sides stack; tiles and tokens are 44 px, the Scepter unringed until tapped, every label inside its button', async ({
+                page
+            }) => {
+                await offerToCole(page)
+                await panelImagesLoaded(page)
+                const give = await boxOf(grid(page).getByText('You give', { exact: true }))
+                const get = await boxOf(grid(page).getByText('You get', { exact: true }))
+                expect(get.y).toBeGreaterThan(give.y + 44)
+                expect(Math.abs(give.x - get.x)).toBeLessThan(1)
+
+                const scepter = answer(page, 'The Grand Scepter')
+                expect(await layoutSizeOf(scepter.locator('img'))).toEqual({ width: 44, height: 44 })
+                expect(await layoutSizeOf(answer(page, 'the Darkest Secret').locator('img'))).toEqual({ width: 88, height: 44 })
+                for (const name of [...FAVOR_TOKENS('you', 4), 'you give 2 secrets', 'they give 1 secret']) {
+                    expect(await layoutSizeOf(answer(page, name))).toEqual({ width: 44, height: 44 })
+                }
+                expect((await layoutSizeOf(answer(page, 'Offer')))?.height).toBeGreaterThanOrEqual(44)
+                await expect(scepter).toHaveAttribute('aria-pressed', 'false')
+                await scepter.click()
+                await expect(scepter).toHaveAttribute('aria-pressed', 'true')
+                expect(await clippedLabels(page)).toEqual([])
+                expect(await wrappedLabels(page)).toEqual([])
+                if (viewport.width === 402) expect(await panelScale(page)).toBe(1)
+            })
+        })
+    }
 })
 
 /** Exile (R-6.7, R-6.8): each button is the price and whom it goes to. */
@@ -3492,7 +3668,8 @@ test('scenario 55: a card that makes a Search possible is found with the powers;
     await usePower(page).click()
     await expect(grid(page)).toContainText('Makes an action possible')
     const card = actionCard(page, 'denizen.beast.mushrooms')
-    await expect(card).toContainText('Search:')
+    await expect(card).toContainText('Mushrooms — Search')
+    await expect(card).not.toContainText('Spend no Supply')
     await expect(card).toContainText('on it')
     await card.getByRole('button', { name: 'Search with Mushrooms', exact: true }).click()
     expect((await call(page, 'tableFacts')).machineState).toBe('ActPhase')
@@ -4481,5 +4658,410 @@ test.describe('power questions', () => {
                 expect(new Set(sizes.map((size) => Math.round(size.width))).size).toBe(1)
             })
         }
+    })
+})
+
+/**
+ * The Show menu (R-6.1, R-6.6.1, R-9.4): the cards this seat may show as images, its facedown
+ * advisers then the Reliquary relics in space order; a tap rings one, and "To:" lists the chips of
+ * the players who may see it; a chip shows it.
+ */
+test.describe('the Show menu', () => {
+    const SHOWABLE = ['Insect Swarm', 'Ring of Devotion', 'Cup of Plenty', 'Skeleton Key', 'Brass Horse']
+    const picker = (page: Page) => page.locator('.let-peek-picker')
+    const showCard = (page: Page, name: string) =>
+        picker(page).locator('button[aria-pressed]').filter({ has: page.getByRole('img', { name, exact: true }) })
+    const chips = (page: Page) => picker(page).getByRole('button', { name: /^Show .+ to \w+$/ })
+
+    /** Each card and chip of the picker as drawn, in layout pixels (a tall panel is scaled to fit). */
+    async function shown(page: Page) {
+        await expect(picker(page).locator('img').first()).toBeVisible()
+        await picker(page)
+            .locator('img')
+            .evaluateAll((images: HTMLImageElement[]) =>
+                Promise.all(images.map((image) => image.decode().catch(() => undefined)))
+            )
+        return picker(page).evaluate((root: HTMLElement) => {
+            const frame = root.getBoundingClientRect()
+            const scale = frame.width / root.offsetWidth
+            const edge = (root.closest('.panel') ?? root.closest('.let-peek') ?? root).getBoundingClientRect()
+            const local = (rect: DOMRect) => ({
+                left: (rect.left - frame.left) / scale,
+                top: (rect.top - frame.top) / scale,
+                right: (rect.right - frame.left) / scale,
+                bottom: (rect.bottom - frame.top) / scale,
+                width: rect.width / scale,
+                height: rect.height / scale,
+                inPanel: rect.left >= edge.left - 0.5 && rect.right <= edge.right + 0.5
+            })
+            const cards = [...root.querySelectorAll<HTMLButtonElement>('button[aria-pressed]')].map((button) => {
+                const image = button.querySelector('img')
+                if (!image) throw Error('A card to show has no image')
+                return {
+                    name: image.alt,
+                    picked: button.getAttribute('aria-pressed') === 'true',
+                    ...local(image.getBoundingClientRect())
+                }
+            })
+            const chipButtons = [
+                ...root.querySelectorAll<HTMLButtonElement>('button:not([aria-pressed]):not(.magnifier)')
+            ]
+            const chips = chipButtons.map((button) => {
+                const outer = button.getBoundingClientRect()
+                return {
+                    name: button.getAttribute('aria-label') ?? '',
+                    text: button.textContent?.trim() ?? '',
+                    title: button.getAttribute('title'),
+                    inside: [...button.querySelectorAll('*')].every((child) => {
+                        const inner = child.getBoundingClientRect()
+                        return (
+                            inner.left >= outer.left - 0.5 &&
+                            inner.right <= outer.right + 0.5 &&
+                            inner.top >= outer.top - 0.5 &&
+                            inner.bottom <= outer.bottom + 0.5
+                        )
+                    }),
+                    ...local(outer)
+                }
+            })
+            return { cards, chips }
+        })
+    }
+
+    test('at 1280: the adviser then the Reliquary relics, faces, 100 px, one line, none ringed; a tap rings one and “To:” shows who may see it; a chip shows it', async ({
+        page
+    }) => {
+        await openTable(page, 'show')
+        await minor(page, 'Show').click()
+        await expect(grid(page).getByText(/^Show .+ to$/)).toHaveCount(0)
+
+        const before = await shown(page)
+        // R-6.4-H1 — the Scepter's holder knows every Reliquary relic, so each is its face.
+        expect(before.cards.map((card) => card.name)).toEqual(SHOWABLE)
+        expect(before.cards.filter((card) => card.picked)).toEqual([])
+        expect(before.chips).toEqual([])
+        await expect(picker(page).getByText('To:', { exact: true })).toHaveCount(0)
+        for (const card of before.cards) {
+            expect(card.height, `${card.name}: 100 tall`).toBeCloseTo(100, 0)
+            expect(card.top, `${card.name}: on the first card’s line`).toBeCloseTo(before.cards[0].top, 0)
+            expect(card.inPanel, `${card.name}: inside the panel`).toBe(true)
+        }
+        await expect(picker(page).locator('button.magnifier')).toHaveCount(SHOWABLE.length)
+        await expect(picker(page).getByRole('button', { name: 'Enlarge Cup of Plenty', exact: true })).toBeVisible()
+
+        // R-6.1, R-9.4 — an adviser may be shown to every other player.
+        await showCard(page, 'Insect Swarm').click()
+        await expect(showCard(page, 'Insect Swarm')).toHaveAttribute('aria-pressed', 'true')
+        await expect(picker(page).getByText('To:', { exact: true })).toBeVisible()
+        await expect(chips(page)).toHaveText(['cole', 'ann'])
+        expect(await chips(page).evaluateAll((buttons) => buttons.map((b) => b.getAttribute('aria-label')))).toEqual([
+            'Show Insect Swarm to cole',
+            'Show Insect Swarm to ann'
+        ])
+
+        // R-6.6.1 — a relic only to an Exile: the Citizen has no chip.
+        await showCard(page, 'Cup of Plenty').click()
+        await expect(showCard(page, 'Insect Swarm')).toHaveAttribute('aria-pressed', 'false')
+        await expect(chips(page)).toHaveText(['cole'])
+        const relicChip = picker(page).getByRole('button', {
+            name: 'Show the relic on Reliquary space 2 to cole',
+            exact: true
+        })
+        await expect(relicChip).toBeVisible()
+        const after = await shown(page)
+        for (const chip of after.chips) {
+            expect(chip.inside, `${chip.name}: the chip inside its button`).toBe(true)
+            expect(chip.title, `${chip.name}: no hover text`).toBeNull()
+            expect(chip.top, `${chip.name}: under the cards`).toBeGreaterThan(
+                Math.max(...after.cards.map((card) => card.bottom))
+            )
+        }
+
+        await relicChip.click()
+        await expect.poll(() => call(page, 'lastLetPeek')).toEqual({
+            toPlayerId: 'cole',
+            subject: { kind: 'reliquary', slotId: 'reliquary.1' }
+        })
+    })
+
+    // Four relics at 69 px and their gaps take 300 px: the panel holds them on one line at 402 wide
+    // (328 px inside) and at 375 (303.5 px).
+    for (const { viewport, oneLine } of [
+        { viewport: { width: 402, height: 874 }, oneLine: true },
+        { viewport: { width: 375, height: 812 }, oneLine: true }
+    ]) {
+        test(`at ${viewport.width} wide: the cards 69 px, the Reliquary on its own line, the chips 44 px tall`, async ({
+            page
+        }) => {
+            await page.setViewportSize(viewport)
+            await openTable(page, 'show')
+            await minor(page, 'Show').click()
+            await showCard(page, 'Insect Swarm').click()
+
+            const { cards, chips: drawn } = await shown(page)
+            expect(cards.map((card) => card.name)).toEqual(SHOWABLE)
+            const [adviser, ...relics] = cards
+            for (const card of cards) {
+                expect(card.height, `${card.name}: 69 tall`).toBeCloseTo(69, 0)
+                expect(card.inPanel, `${card.name}: inside the panel`).toBe(true)
+            }
+            expect(relics[0].left, 'the Reliquary starts its line').toBeCloseTo(adviser.left, 0)
+            for (const relic of relics) {
+                expect(relic.top, `${relic.name}: under the adviser`).toBeGreaterThan(adviser.bottom)
+                if (oneLine) {
+                    expect(relic.top, `${relic.name}: on the Reliquary’s one line`).toBeCloseTo(relics[0].top, 0)
+                }
+            }
+            expect(drawn.map((chip) => chip.text)).toEqual(['cole', 'ann'])
+            for (const chip of drawn) {
+                expect(chip.height, `${chip.name}: 44 tall`).toBeGreaterThanOrEqual(44)
+                expect(chip.inside, `${chip.name}: the chip inside its button`).toBe(true)
+                expect(chip.inPanel, `${chip.name}: inside the panel`).toBe(true)
+            }
+        })
+    }
+
+    test('one card to show starts ringed with its chips, and Undo then closes the menu', async ({ page }) => {
+        await openTable(page, 'showOne')
+        await minor(page, 'Show').click()
+        await expect(showCard(page, 'Forced Labor')).toHaveAttribute('aria-pressed', 'true')
+        await expect(chips(page)).toHaveText(['jacob', 'ann'])
+        await expect(chips(page).first()).toHaveAccessibleName('Show Forced Labor to jacob')
+
+        await undoButton(page).click()
+        expect(await call(page, 'letPeekState')).toEqual({ open: false, staged: true })
+    })
+
+    test('Undo takes back the picked card, then closes the menu', async ({ page }) => {
+        await openTable(page, 'show')
+        await minor(page, 'Show').click()
+        await showCard(page, 'Skeleton Key').click()
+        await expect(chips(page)).toHaveText(['cole'])
+
+        await undoButton(page).click()
+        await expect(picker(page).locator('button[aria-pressed="true"]')).toHaveCount(0)
+        await expect(chips(page)).toHaveCount(0)
+        expect(await call(page, 'letPeekState')).toEqual({ open: true, staged: true, action: 'letPeek' })
+
+        await undoButton(page).click()
+        expect(await call(page, 'letPeekState')).toEqual({ open: false, staged: true })
+    })
+
+    test('off the clock, the seat card’s picker: the same cards at 56 px, the Reliquary on its own line, 44 px chips; Undo unpicks, then closes', async ({
+        page
+    }) => {
+        await openTable(page, 'showOne')
+        expect(await call(page, 'viewOffTheClock')).toBe('jacob')
+        await page.getByRole('button', { name: 'Let another peek', exact: true }).click()
+        await expect(page.locator('.let-peek .let-peek-picker')).toHaveCount(1)
+        await expect(picker(page).locator('button[aria-pressed="true"]')).toHaveCount(0)
+
+        await showCard(page, 'Cup of Plenty').click()
+        await expect(chips(page)).toHaveText(['cole'])
+        await expect(chips(page)).toHaveAccessibleName('Show the relic on Reliquary space 2 to cole')
+
+        const { cards, chips: drawn } = await shown(page)
+        expect(cards.map((card) => card.name)).toEqual(SHOWABLE)
+        const [adviser, ...relics] = cards
+        for (const card of cards) {
+            expect(card.height, `${card.name}: 56 tall`).toBeCloseTo(56, 0)
+            expect(card.inPanel, `${card.name}: inside the seat card`).toBe(true)
+        }
+        for (const relic of relics) {
+            expect(relic.top, `${relic.name}: under the adviser`).toBeGreaterThan(adviser.bottom)
+            expect(relic.top, `${relic.name}: on the Reliquary’s one line`).toBeCloseTo(relics[0].top, 0)
+        }
+        for (const chip of drawn) {
+            expect(chip.height, `${chip.name}: 44 tall`).toBeGreaterThanOrEqual(44)
+            expect(chip.inside, `${chip.name}: the chip inside its button`).toBe(true)
+        }
+
+        await undoButton(page).click()
+        await expect(chips(page)).toHaveCount(0)
+        expect(await call(page, 'letPeekState')).toEqual({ open: true, staged: false })
+        await undoButton(page).click()
+        expect(await call(page, 'letPeekState')).toEqual({ open: false, staged: false })
+    })
+})
+
+/**
+ * Rule 4 and "Choose a card": no panel prints a card's power text, under or beside it; the card is
+ * a magnifier press away. Every card in a panel carries its corner magnifier, a small one
+ * straddling the top-left corner of a small card, and its hover title and the magnifier's spoken
+ * name are the card's name alone.
+ */
+test.describe('card power text: none in a panel; every panel card has its magnifier', () => {
+    /** A picture-row card (CardChoiceRow) by its title, and the cell around it. */
+    const rowCard = (page: Page, name: string) => grid(page).locator(`button[aria-pressed][title="${name}"]`)
+    const rowCell = (page: Page, name: string) => rowCard(page, name).locator('xpath=..')
+    const enlarge = (scope: Locator, name: string) =>
+        scope.getByRole('button', { name: `Enlarge ${name}`, exact: true })
+    /** Marks only a raw printed text carries: emphasis, token codes, an "Action:" lead. */
+    const RAW_MARKS = ['**', '[', 'Action:']
+    /** Its laid-out size in CSS pixels, whatever a scaled panel draws it at. */
+    const layoutSize = (locator: Locator) =>
+        locator.evaluate((element) =>
+            element instanceof HTMLElement ? { width: element.offsetWidth, height: element.offsetHeight } : { width: 0, height: 0 }
+        )
+
+    async function expectNoRawText(page: Page) {
+        const text = await grid(page).innerText()
+        for (const mark of RAW_MARKS) expect(text, `the panel prints "${mark}"`).not.toContain(mark)
+    }
+
+    /** Each offered card in the panel's picture rows: its title, its picture's name, its cell's text and magnifiers. */
+    async function offeredCards(page: Page) {
+        return grid(page)
+            .locator('button[aria-pressed][title]')
+            .evaluateAll((buttons) =>
+                buttons.map((button) => {
+                    const cell = button.parentElement
+                    return {
+                        title: button.getAttribute('title') ?? '',
+                        alt: button.querySelector('img')?.getAttribute('alt') ?? '',
+                        text: cell?.innerText.trim() ?? '',
+                        magnifiers: [...(cell?.querySelectorAll('button.magnifier') ?? [])].map(
+                            (magnifier) => magnifier.getAttribute('aria-label') ?? ''
+                        )
+                    }
+                })
+            )
+    }
+
+    async function expectNamedCardsWithoutText(page: Page) {
+        const cards = await offeredCards(page)
+        expect(cards.length, 'cards offered').toBeGreaterThan(0)
+        for (const card of cards) {
+            expect(card.title, `${card.title}: named by its card alone`).not.toContain('—')
+            expect(card.alt, `${card.title}: its picture named by the card`).toBe(card.title)
+            expect(card.text, `${card.title}: no text under the card`).toBe('')
+            expect(card.magnifiers, `${card.title}: one magnifier, named for the card`).toEqual([`Enlarge ${card.title}`])
+        }
+    }
+
+    /** The magnifier on a card picture, by the card's name: its laid-out size, and its box and the picture's on screen. */
+    async function magnifierOn(scope: Locator, name: string) {
+        const glass = enlarge(scope, name)
+        await expect(glass).toHaveCount(1)
+        const card = glass.locator('xpath=..').getByRole('img', { name, exact: true })
+        await expect(card).toHaveCount(1)
+        return { glass, size: (await layoutSize(glass)).width, glassBox: await boxOf(glass), cardBox: await boxOf(card) }
+    }
+
+    test('a modifier in an action’s menu: Truthful Harp is its picture and magnifier, with no text and its name alone', async ({ page }) => {
+        await openTable(page, 'harpSearch')
+        await tile(page, 'Search').click()
+        await expect(rowCard(page, 'Truthful Harp')).toBeVisible()
+        await expect(rowCell(page, 'Truthful Harp')).toHaveText('')
+        await expect(enlarge(rowCell(page, 'Truthful Harp'), 'Truthful Harp')).toBeVisible()
+        await expectNamedCardsWithoutText(page)
+        await expectNoRawText(page)
+        await expect(grid(page)).not.toContainText('reveal')
+
+        await enlarge(rowCell(page, 'Truthful Harp'), 'Truthful Harp').click()
+        await expect(preview(page)).toBeVisible()
+        await expect(rowCard(page, 'Truthful Harp')).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    for (const name of ['battleDefenderPlans', 'attackerPlans'] as const) {
+        test(`battle plans (${name}): each plan its picture and magnifier, with no text and its name alone`, async ({ page }) => {
+            await openTable(page, name)
+            await expect(grid(page).locator('button[aria-pressed]').first()).toBeVisible()
+            await expectNamedCardsWithoutText(page)
+            await expectNoRawText(page)
+        })
+    }
+
+    test('Use a power: each card its magnifier, the name and action with no text, the Whistle’s cost on Use in gold', async ({ page }) => {
+        await openTable(page, 'usePower')
+        await usePower(page).click()
+        const entries = [
+            { entry: actionCard(page, 'denizen.beast.mushrooms'), name: 'Mushrooms', head: 'Mushrooms — Search' },
+            { entry: actionCard(page, 'denizen.nomad.tents'), name: 'Tents', head: 'Tents — Travel' },
+            { entry: grid(page).locator('[data-action-power="relic.whistle"]'), name: 'Whistle', head: 'Whistle' }
+        ]
+        for (const { entry, name, head } of entries) {
+            await expect(entry).toBeVisible()
+            await expect(entry.locator('button.magnifier'), `${name}: one magnifier`).toHaveCount(1)
+            const { size, glassBox, cardBox } = await magnifierOn(entry, name)
+            expect(size, `${name}: the mid-sized glass`).toBe(24)
+            expect(glassBox.x + glassBox.width, `${name}: in the card’s top-right corner`).toBeGreaterThan(cardBox.x + cardBox.width)
+            expect(glassBox.y, `${name}: straddling its top edge`).toBeLessThan(cardBox.y)
+            await expect(entry.locator('.text-sm').first()).toHaveText(head)
+        }
+        await expect(actionCard(page, 'denizen.beast.mushrooms')).not.toContainText('Spend no Supply')
+        await expect(actionCard(page, 'denizen.nomad.tents')).not.toContainText('traveling')
+        await expect(grid(page)).not.toContainText('Choose a pawn')
+        await expectNoRawText(page)
+
+        const use = grid(page).getByRole('button', { name: 'Use, paying 1 secret', exact: true })
+        await expect(use).toBeVisible()
+        await expect(use).toHaveText(/^Use\s*·\s*1$/)
+        const cost = use.locator('.text-oath-accent')
+        await expect(cost.getByRole('img', { name: 'secret' })).toBeVisible()
+        expect(await tokenRuns(cost)).toEqual([['1', 'accent']])
+
+        await enlarge(grid(page), 'Whistle').click()
+        await expect(preview(page)).toBeVisible()
+    })
+
+    for (const viewport of [{ width: 402, height: 874 }, { width: 375, height: 812 }]) {
+        test(`Use a power at ${viewport.width}: its buttons and its pick 44 px tall, every label inside its button`, async ({ page }) => {
+            await page.setViewportSize(viewport)
+            await openTable(page, 'usePower')
+            await usePower(page).click()
+            const controls = [
+                grid(page).getByRole('button', { name: 'Search with Mushrooms', exact: true }),
+                grid(page).getByRole('button', { name: 'Travel with Tents', exact: true }),
+                grid(page).getByRole('button', { name: 'Use, paying 1 secret', exact: true }),
+                grid(page).locator('[data-action-power="relic.whistle"] select')
+            ]
+            for (const control of controls) {
+                await expect(control).toBeVisible()
+                const { height } = await layoutSize(control)
+                expect(height, `${await control.textContent()}: 44 tall`).toBeGreaterThanOrEqual(44)
+            }
+            expect(await clippedLabels(page)).toEqual([])
+            expect(await wrappedLabels(page)).toEqual([])
+            for (const name of ['Mushrooms', 'Tents', 'Whistle']) {
+                await expect(enlarge(grid(page), name)).toBeVisible()
+            }
+        })
+    }
+
+    test('a question’s small card: the small magnifier straddles its top-left corner and enlarges it', async ({ page }) => {
+        await openTable(page, 'askBlackmail')
+        const form = grid(page).locator('.question-form')
+        const { glass, size, glassBox, cardBox } = await magnifierOn(form, 'Ring of Devotion')
+        expect(size).toBe(18)
+        expect(glassBox.x, 'out past the card’s left edge').toBeLessThan(cardBox.x)
+        expect(glassBox.y, 'out past the card’s top edge').toBeLessThan(cardBox.y)
+        expect(glassBox.x + glassBox.width, 'clear of the line beside the card').toBeLessThan(cardBox.x + cardBox.width)
+        await glass.click()
+        await expect(preview(page)).toBeVisible()
+        await expect(answer(page, 'Pay')).toBeVisible()
+    })
+
+    test('Search’s kept card at "How do you play it?" carries its magnifier', async ({ page }) => {
+        await openTable(page, 'searching')
+        const first = panelCards(page).first()
+        const name = (await first.getByRole('img').getAttribute('alt')) ?? ''
+        expect(name).not.toBe('')
+        await first.click()
+        await expect(grid(page).getByText('How do you play it?', { exact: true })).toBeVisible()
+        const { glass, size } = await magnifierOn(grid(page), name)
+        expect(size).toBe(28)
+        await glass.click()
+        await expect(preview(page)).toBeVisible()
+        expect((await call(page, 'searchPicks')).placement).toBeUndefined()
+    })
+
+    test('the Wake’s site card carries the small magnifier', async ({ page }) => {
+        await openTable(page, 'wakeSite')
+        const { glass, size, glassBox, cardBox } = await magnifierOn(grid(page), 'Drowned City')
+        expect(size).toBe(18)
+        expect(glassBox.x, 'out past the card’s left edge').toBeLessThan(cardBox.x)
+        await glass.click()
+        await expect(preview(page)).toBeVisible()
     })
 })
