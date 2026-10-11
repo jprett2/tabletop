@@ -7,6 +7,7 @@ import {
     type Suit
 } from '@tabletop/oath'
 import { exchangeComplete, noExchangePicks, type ExchangePicks } from './exchangeTerms.js'
+import type { MovePick } from './powerMoves.js'
 
 export type PowerChoicePicks = {
     option: Record<number, number>
@@ -14,10 +15,12 @@ export type PowerChoicePicks = {
     terms: Record<number, ExchangePicks>
     several: Record<number, number[]>
     severalCount: Record<string, number>
+    /** A power's moves (Messenger), each keyed by the place, owner and site picked. */
+    moves: MovePick[]
 }
 
 export function emptyPicks(): PowerChoicePicks {
-    return { option: {}, count: {}, terms: {}, several: {}, severalCount: {} }
+    return { option: {}, count: {}, terms: {}, several: {}, severalCount: {}, moves: [] }
 }
 
 export const NO_OPTION = -1

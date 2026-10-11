@@ -57,6 +57,15 @@ import {
     type PowerChoicePicks
 } from './powerChoices.js'
 import { samePowerUse } from './powerUse.js'
+import {
+    isPowerMoves,
+    moveChoices,
+    powerMoves,
+    powerMovesComplete,
+    withoutLastPick,
+    type MovePick,
+    type PowerMoves
+} from './powerMoves.js'
 import { addableCount, tappedCount } from './exchangeTerms.js'
 import { StagedFlow, type PanelDraft, type StagesCover } from './stagedFlow.svelte.js'
 import type { OathGameSession } from './session.svelte.js'
@@ -416,6 +425,9 @@ const PALANQUIN = 'denizen.order.palanquin'
 
 /** R-6.2, R-7.3.2 — the choices each "Action:" power's text opens. */
 export class ActionPowersDraft extends OneStepDraft<Record<string, PowerChoicePicks>> {
+    // The power whose moves were picked last: Undo takes its picks back one at a time.
+    private movesPicked: string | undefined
+
     private get playerId(): string | undefined {
         return this.session.selection.action === ActionType.UseActionPower
             ? this.session.liveTurnSeatId
@@ -436,15 +448,33 @@ export class ActionPowersDraft extends OneStepDraft<Record<string, PowerChoicePi
         if (!this.powers.some((p) => samePowerUse(p, use))) {
             return
         }
+        this.movesPicked = undefined
         this.store({ ...this.stored, [powerKey(use.cardId, use.powerIndex)]: picks })
+    }
+
+    /** Messenger's moves, one at a time, each read on the state the moves before it leave. */
+    movesOf(power: LegalPowerUse): PowerMoves | undefined {
+        const playerId = this.playerId
+        const printed = cardPower(power.cardId, power.powerIndex)
+        if (!playerId || !printed || !isPowerMoves(power.choices)) return undefined
+        return powerMoves(this.session.gameState, playerId, printed, this.picksOf(power).moves)
+    }
+
+    setMoves(use: PowerUseKey, moves: MovePick[]): void {
+        this.setPicks(use, { ...this.picksOf(use), moves })
+        this.movesPicked = powerKey(use.cardId, use.powerIndex)
     }
 
     /** "Use" waits until every choice the power opens has its picks. */
     picksComplete(power: LegalPowerUse): boolean {
+        const moves = this.movesOf(power)
+        if (moves) return powerMovesComplete(moves)
         return picksComplete(power.choices, this.picksOf(power))
     }
 
     choicesFor(power: LegalPowerUse): PowerChoice[] {
+        const moves = this.movesOf(power)
+        if (moves) return moveChoices(moves.whole)
         return powerChoicesFrom(power.choices, this.picksOf(power))
     }
 
@@ -483,6 +513,29 @@ export class ActionPowersDraft extends OneStepDraft<Record<string, PowerChoicePi
         if (!this.playerId) return
         await this.session.useActionPower(power.cardId, power.powerIndex, this.choicesFor(power))
     }
+
+    /** Undo takes back the last move pick when moves were picked last; otherwise it clears the picks. */
+    override back(): boolean {
+        const key = this.movesPicked
+        const picks = key === undefined ? undefined : this.stored?.[key]
+        if (key === undefined || picks === undefined || picks.moves.length === 0) {
+            return super.back()
+        }
+        const moves = withoutLastPick(picks.moves)
+        const rest = { ...this.stored, [key]: { ...picks, moves } }
+        if (Object.values(rest).some(hasPicks)) this.store(rest)
+        else super.back()
+        return true
+    }
+}
+
+function hasPicks(picks: PowerChoicePicks): boolean {
+    return (
+        picks.moves.length > 0 ||
+        [picks.option, picks.count, picks.terms, picks.several, picks.severalCount].some(
+            (record) => Object.keys(record).length > 0
+        )
+    )
 }
 
 type OfferTerms = {
