@@ -15,7 +15,6 @@ import {
     shroudedWoodDestinations,
     usableFavor,
     type ConspiracyPlay,
-    type ExchangeTerms,
     PowerQuestionValidator,
     type PowerQuestion,
     type ProjectedPowerQuestion,
@@ -23,7 +22,7 @@ import {
 } from '@tabletop/oath'
 import { answerCostText } from './actionCards.js'
 import { discardOrderOf, isDiscardOrderComplete } from './discardOrder.js'
-import { namesAnything } from './exchangeTerms.js'
+import { exchangeComplete, noExchangePicks, type ExchangePicks } from './exchangeTerms.js'
 import {
     advisersToDiscardForConspiracy,
     advisersToDiscardForVision,
@@ -40,7 +39,7 @@ import type { OathGameSession } from './session.svelte.js'
 type QuestionValueByStage = {
     burn: number
     floorWith: string
-    floorTerms: ExchangeTerms
+    floorTerms: ExchangePicks
     conspiracyPlay: ConspiracyStepPlay
     takeTarget: string
     takePrize: number
@@ -136,13 +135,14 @@ export class QuestionDraft implements PanelDraft {
             : undefined
     }
 
-    get floorTerms() {
-        return this.floorWith ? (this.flow.value('floorTerms') ?? {}) : {}
+    get floorTerms(): ExchangePicks {
+        const terms = this.floorWith ? this.flow.value('floorTerms') : undefined
+        return terms ?? noExchangePicks()
     }
 
-    /** The Gathering — a proposal is a player and some terms. */
+    /** The Gathering — a proposal is a player and complete terms. */
     get floorProposed(): boolean {
-        return this.floorWith !== undefined && namesAnything(this.floorTerms)
+        return this.floorWith !== undefined && exchangeComplete(this.floorTerms)
     }
 
     /** The players here the take could match who hold a relic or banner it may take. */
@@ -492,7 +492,10 @@ export class QuestionDraft implements PanelDraft {
                 if (!yes) return { kind: question.kind }
                 const withPlayerId = this.floorWith
                 assertExists(withPlayerId, 'A proposal needs the player chosen')
-                return { kind: question.kind, proposal: { withPlayerId, terms: this.floorTerms } }
+                return {
+                    kind: question.kind,
+                    proposal: { withPlayerId, terms: this.floorTerms.terms }
+                }
             }
             case PowerQuestionKind.PayTravelToll:
                 return { kind: question.kind, pay: yes }
@@ -526,7 +529,7 @@ export class QuestionDraft implements PanelDraft {
         else if (this.floorCandidates.includes(playerId)) this.flow.set('floorWith', playerId)
     }
 
-    setFloorTerms(terms: ExchangeTerms): void {
+    setFloorTerms(terms: ExchangePicks): void {
         if (this.floorWith) this.flow.set('floorTerms', terms)
     }
 

@@ -1,17 +1,17 @@
 import {
     PowerChoiceKind,
     usableFavor,
-    type ExchangeTerms,
     type HydratedOathGameState,
     type LegalChoice,
     type PowerChoice,
     type Suit
 } from '@tabletop/oath'
+import { exchangeComplete, noExchangePicks, type ExchangePicks } from './exchangeTerms.js'
 
 export type PowerChoicePicks = {
     option: Record<number, number>
     count: Record<number, number>
-    terms: Record<number, ExchangeTerms>
+    terms: Record<number, ExchangePicks>
     several: Record<number, number[]>
     severalCount: Record<string, number>
 }
@@ -38,6 +38,13 @@ export function openCountCeiling(
 export function favorBankSuits(options: readonly PowerChoice[]): Suit[] {
     return options.flatMap((option) =>
         option.kind === PowerChoiceKind.FavorBank ? [option.suit] : []
+    )
+}
+
+/** R-10.8 — the players an exchange may be negotiated with, in option order. */
+export function exchangePartners(options: readonly PowerChoice[]): string[] {
+    return options.flatMap((option) =>
+        option.kind === PowerChoiceKind.Exchange ? [option.withPlayerId] : []
     )
 }
 
@@ -83,9 +90,17 @@ export function withOptionPick(
 ): PowerChoicePicks {
     const count = picks.count[index]
     const option = legal.options[pick]
+    // R-10.8 — terms are written for one player.
+    const terms =
+        pick === optionIndexOf(legal, index, picks)
+            ? picks.terms
+            : Object.fromEntries(
+                  Object.entries(picks.terms).filter(([key]) => Number(key) !== index)
+              )
     return {
         ...picks,
         option: { ...picks.option, [index]: pick },
+        terms,
         count:
             count === undefined || option?.kind !== PowerChoiceKind.Warbands
                 ? picks.count
@@ -122,17 +137,22 @@ export function withSeveralCount(
 
 /**
  * A confirm waits until every spec has at least its least picks. A required single pick
- * counts the option the picker shows picked, as `powerChoicesFrom` sends it.
+ * counts the option the picker shows picked, as `powerChoicesFrom` sends it; an exchange also
+ * waits for terms that move something, every picked site counted (R-10.8).
  */
 export function picksComplete(choices: readonly LegalChoice[], picks: PowerChoicePicks): boolean {
     return choices.every((legal, index) => {
-        const picked = allowsSeveral(legal)
-            ? (picks.several[index] ?? []).filter((option) => legal.options[option] !== undefined)
-                  .length
-            : legal.options[optionIndexOf(legal, index, picks)] === undefined
-              ? 0
-              : 1
-        return picked >= legal.spec.min
+        if (allowsSeveral(legal)) {
+            const picked = (picks.several[index] ?? []).filter(
+                (option) => legal.options[option] !== undefined
+            )
+            return picked.length >= legal.spec.min
+        }
+        const option = legal.options[optionIndexOf(legal, index, picks)]
+        if (option?.kind === PowerChoiceKind.Exchange) {
+            return exchangeComplete(picks.terms[index] ?? noExchangePicks())
+        }
+        return (option === undefined ? 0 : 1) >= legal.spec.min
     })
 }
 
@@ -159,7 +179,7 @@ export function powerChoicesFrom(
             out.push({
                 kind: PowerChoiceKind.Exchange,
                 withPlayerId: option.withPlayerId,
-                terms: picks.terms[index] ?? {}
+                terms: picks.terms[index]?.terms ?? {}
             })
         } else if (option.kind === PowerChoiceKind.Count) {
             out.push({ kind: PowerChoiceKind.Count, n: picks.count[index] ?? 0 })
