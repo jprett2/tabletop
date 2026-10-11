@@ -12,6 +12,7 @@ import {
     Suit,
     IMPERIAL_WARBANDS,
     OathType,
+    PlayerStatus,
     type WarbandOwner
 } from '@tabletop/oath'
 
@@ -82,6 +83,17 @@ export function oathName(oathType: OathType): string {
 
 export function suitName(suit: Suit): string {
     return SUIT_NAMES[suit]
+}
+
+const STATUS_NAMES: Record<PlayerStatus, string> = {
+    [PlayerStatus.Chancellor]: 'Chancellor',
+    [PlayerStatus.Exile]: 'Exile',
+    [PlayerStatus.Citizen]: 'Citizen'
+}
+
+/** A seat's status, capitalised as its board prints it. */
+export function statusName(status: PlayerStatus): string {
+    return STATUS_NAMES[status]
 }
 
 export function slotLabel(slotId: string): string {
