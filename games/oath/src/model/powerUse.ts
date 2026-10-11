@@ -6,5 +6,6 @@ export const PowerUse = Type.Object({
     cardId: Type.String(),
     // A card can print two powers of one timing (relic.grand-scepter), and R-X.1 forbids inferring which.
     powerIndex: Type.Integer({ minimum: 0, maximum: 9 }),
-    choices: Type.Optional(Type.Array(PowerChoice, { maxItems: 16 }))
+    // Messenger's 16 moves, each its warbands and the site they go to.
+    choices: Type.Optional(Type.Array(PowerChoice, { maxItems: 32 }))
 })
