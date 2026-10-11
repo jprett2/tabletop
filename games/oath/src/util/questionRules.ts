@@ -50,6 +50,7 @@ import {
     settlePowerMoveToll
 } from './powerMoveTolls.js'
 import { payToll } from './tolls.js'
+import { gainFromDrum, reasonDrumBankEmpty } from './dragonskinDrum.js'
 import { PowerMoveKind, PowerMoveTollOutcome } from '../model/powerMoveToll.js'
 
 function listOf(id: string | undefined): string[] {
@@ -357,7 +358,10 @@ export const QUESTION_RULES: { [K in PowerQuestionKind]: QuestionRules<K> } = {
                 const tollMove = askPowerMoveToll(state, move, toll, askingPlayerId, true)
                 return { summary: `chose ${siteId} for ${travelerPlayerId}`, tollMove }
             }
-            const { notes, revealed } = travelByPower(state, travelerPlayerId, siteId)
+            const { notes, revealed } = travelByPower(state, travelerPlayerId, siteId, {
+                playerId: askingPlayerId,
+                next: true
+            })
             const summary = `sent ${travelerPlayerId} to ${siteId}${notes.length ? ` (${notes.join('; ')})` : ''}`
             return revealed ? { summary, disclosed: true } : summary
         }
@@ -373,12 +377,15 @@ export const QUESTION_RULES: { [K in PowerQuestionKind]: QuestionRules<K> } = {
             }
             return reasonCannotTravelByPower(state, playerId, siteId)
         },
-        apply: (state, playerId, matched) => {
+        apply: (state, playerId, matched, _asked, askingPlayerId) => {
             const siteId = matched.answer.siteId
             // Toll Roads — Brass Horse's user travels, so they pay as they go.
             const toll = powerMoveToll(state, playerId, siteId)
             if (toll) payToll(state, playerId, toll)
-            const { notes } = travelByPower(state, playerId, siteId)
+            const { notes } = travelByPower(state, playerId, siteId, {
+                playerId: askingPlayerId,
+                next: true
+            })
             const after = notes.length ? ` (${notes.join('; ')})` : ''
             if (!toll) return `travelled to ${siteId} for no Supply${after}`
             // The History's form for a toll inside a row: what was paid, then the card.
@@ -586,6 +593,12 @@ export const QUESTION_RULES: { [K in PowerQuestionKind]: QuestionRules<K> } = {
                 woodPick: pick
             }
         }
+    },
+    [PowerQuestionKind.DragonskinDrum]: {
+        reasonCannotAnswer: (state, playerId, matched) =>
+            matched.answer.gain ? reasonDrumBankEmpty(state, playerId) : undefined,
+        apply: (state, playerId, matched) =>
+            matched.answer.gain ? gainFromDrum(state, playerId) : 'skipped'
     },
     [PowerQuestionKind.OrderDrawnCards]: {
         reasonCannotAnswer: (_state, _playerId, matched) => {

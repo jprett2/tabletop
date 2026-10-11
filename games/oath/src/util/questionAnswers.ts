@@ -8,7 +8,8 @@ import {
     type AnswerOf,
     type QuestionAnswer,
     type QuestionOf,
-    type ShroudedWoodPick
+    type ShroudedWoodPick,
+    type WarbandGain
 } from '../model/question.js'
 import type { PileDeposit } from '../model/hidden.js'
 import type { PowerMoveToll } from '../model/powerMoveToll.js'
@@ -50,6 +51,8 @@ export interface AnswerOutcome {
     woodPick?: ShroudedWoodPick
     /** Toll Roads on a power's move. */
     tollMove?: PowerMoveToll
+    /** Dragonskin Drum on a power's move. */
+    warbandGain?: WarbandGain
 }
 
 function rulesOf<K extends PowerQuestionKind>(kind: K): QuestionRules<K> {

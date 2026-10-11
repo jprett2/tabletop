@@ -4,7 +4,12 @@ import { GameAction, HydratableAction, MachineContext, Visibility } from '@table
 import { HydratedOathGameState } from '../model/gameState.js'
 import { ActionType } from '../definition/actions.js'
 import { MachineState } from '../definition/states.js'
-import { PowerQuestionKind, QuestionAnswer, ShroudedWoodPick } from '../model/question.js'
+import {
+    PowerQuestionKind,
+    QuestionAnswer,
+    ShroudedWoodPick,
+    WarbandGain
+} from '../model/question.js'
 import { Region } from '../model/oathEnums.js'
 import { RelicToDeckBottom } from '../model/powerOutcome.js'
 import { PileDeposit } from '../model/hidden.js'
@@ -35,7 +40,9 @@ export const AnswerQuestionMetadata = Type.Object({
     /** R-11.7 */
     woodPick: Type.Optional(ShroudedWoodPick),
     // Toll Roads on a power's move
-    tollMove: Type.Optional(PowerMoveToll)
+    tollMove: Type.Optional(PowerMoveToll),
+    // Dragonskin Drum on a power's move
+    warbandGain: Type.Optional(WarbandGain)
 })
 
 export type AnswerQuestion = Type.Static<typeof AnswerQuestion>
@@ -99,7 +106,8 @@ export class HydratedAnswerQuestion
             pileDeposits: outcome.pileDeposits,
             relicTakenFromSlotId: outcome.relicTakenFromSlotId,
             woodPick: outcome.woodPick,
-            tollMove: outcome.tollMove
+            tollMove: outcome.tollMove,
+            warbandGain: outcome.warbandGain
         }
         commitHiddenOutputs(this, state, witnesses)
     }
