@@ -1531,30 +1531,227 @@ test.describe('scenario 62: the Campaign’s words', () => {
         await expect(answer(page, 'Continue')).toBeVisible()
     })
 
-    test('the spoils: what is taken in short words, the banish with the defender’s chip, and the two buttons at one width', async ({
+    test('the spoils: the warbands first, in short words, the site’s picture beside its numbers and no hint on the 0', async ({
         page
     }) => {
         await openTable(page, 'spoils')
         await expect(grid(page).locator('h3')).toHaveText('Spoils')
+        await expect(spoilsStepCount(page)).toHaveText('1 of 3')
         await expect(grid(page)).not.toContainText('You were victorious')
-        const list = grid(page).locator('ul')
-        await expect(list).toContainText(/ · 0 warbands/)
-        await expect(list).toContainText('The People')
-        await expect(list).toContainText(/def's\s+pawn\s+and\s+favor/i)
-        await expect(list).not.toContainText('their pawn sent away')
-        await expect(grid(page)).toContainText('Place warbands: 0 of 4.')
+        await expect(grid(page)).toContainText('Place warbands: 1 of 4.')
         await expect(grid(page)).not.toContainText('This is how you come to rule them')
-        await expect(grid(page)).toContainText(/Banish def to:/i)
-        await expect(grid(page).locator('select option').first()).toHaveText('nowhere')
+        await expect(grid(page)).not.toContainText('bandits')
+        await expect(grid(page).locator('select')).toHaveCount(0)
+        await expect(grid(page).locator('ul')).toHaveCount(0)
+        await expect(answer(page, 'Take spoils')).toHaveCount(0)
+    })
+})
 
-        const take = answer(page, 'Take spoils')
-        const burn = grid(page).getByRole('button', { name: /^Take and burn 2/ })
+/** The spoils' option buttons, the number buttons of the warbands step among them. */
+const placeButtons = (page: Page) => grid(page).getByRole('button', { name: /^Place \d+ warbands? at / })
+const placeButton = (page: Page, n: number, row = 0) =>
+    grid(page)
+        .getByRole('list', { name: 'Warbands on the sites taken' })
+        .getByRole('listitem')
+        .nth(row)
+        .getByRole('button', { name: new RegExp(`^Place ${n} warbands? at `) })
+const spoilsStepCount = (page: Page) => grid(page).getByText(/^\d of \d$/)
+const leavePawn = (page: Page) => grid(page).getByRole('button', { name: /^Leave it at / })
+const banishPrompt = (page: Page) => grid(page).getByText(/^Tap a lit site to banish\s+def's\s+pawn there\.$/i)
+const takeSpoils = (page: Page) => answer(page, 'Take spoils')
+const takeAndBurn = (page: Page) => grid(page).getByRole('button', { name: /^Take and burn 2/ })
+const SPOILS_SITE = 'slot.provinces.0'
+
+/** The tooltips on the spoils' own controls; the magnifiers keep theirs. */
+const titledSpoilsButtons = (page: Page) => grid(page).locator('button[title]:not(.magnifier)')
+
+/** Scenario 64: the spoils one step at a time, in the Law's order (R-5.5.7). */
+test.describe('scenario 64: the spoils one step at a time', () => {
+    test('the warbands step: the site’s picture and name, the numbers with the warband symbol, 1 already marked, and Next', async ({
+        page
+    }) => {
+        await openTable(page, 'spoils')
+        const rows = grid(page).getByRole('list', { name: 'Warbands on the sites taken' }).getByRole('listitem')
+        await expect(rows).toHaveCount(1)
+        await expect(rows.first().getByRole('button', { name: /^Enlarge / })).toHaveCount(1)
+        await expect(rows.first().locator('img').first()).toBeVisible()
+        await expect(placeButtons(page)).toHaveCount(5)
+        for (let n = 0; n <= 4; n++) {
+            const button = placeButton(page, n)
+            await expect(button).toHaveText(String(n))
+            await expect(button).toHaveAttribute('aria-pressed', n === 1 ? 'true' : 'false')
+            await expect(button.locator('img')).toHaveCount(n === 0 ? 0 : 1)
+        }
+        await expect(answer(page, 'Next')).toBeVisible()
+        await expect(titledSpoilsButtons(page)).toHaveCount(0)
+        expect(await clippedLabels(page)).toEqual([])
+    })
+
+    test('a number moves on to the pawn, picked on the map; a lit site moves on to the favor, whose two buttons send', async ({
+        page
+    }) => {
+        await openTable(page, 'spoils')
+        await placeButton(page, 2).click()
+        await expect(spoilsStepCount(page)).toHaveText('2 of 3')
+        await expect(banishPrompt(page)).toBeVisible()
+        await expect(leavePawn(page)).toBeVisible()
+        await expect(placeButtons(page)).toHaveCount(0)
+
+        const lit = await litSlots(page)
+        expect(lit.length).toBeGreaterThan(1)
+        expect(lit).not.toContain(SPOILS_SITE)
+        for (const slotId of lit) {
+            await expect(siteAt(page, slotId).locator('.travel-cost')).toHaveText('banish')
+            await expect(siteMagnifier(page, slotId)).toHaveCount(1)
+        }
+        await expect(dimmedSites(page)).not.toHaveCount(0)
+
+        const [banishTo] = lit
+        await (await uncovered(page, `.site[data-slot="${banishTo}"] .board-card`)).click()
+        await expect(spoilsStepCount(page)).toHaveText('3 of 3')
+        await expect(boardOffers(page)).toHaveCount(0)
+        await expect(dimmedSites(page)).toHaveCount(0)
+        await expect(grid(page)).toContainText(/def's\s+favor/i)
+
+        const take = takeSpoils(page)
+        const burn = takeAndBurn(page)
         await expect(take).toBeVisible()
         await expect(burn).toBeVisible()
         expect(await widthOf(take)).toBe(await widthOf(burn))
         expect(await pairLayout(take, burn)).toBe('side by side')
+        expect(await backgroundOf(take)).toBe(await primaryBackground(page))
+        await expect(titledSpoilsButtons(page)).toHaveCount(0)
+
+        await take.click()
+        await expect.poll(async () => (await call(page, 'tableFacts')).siteOf.def).toBe(banishTo)
+        const facts = await call(page, 'tableFacts')
+        expect(facts.warbandsAt[SPOILS_SITE]?.att).toBe(2)
+        expect(facts.favorOf.def).toBe(4)
+        expect(facts.campaignUnderway).toBe(false)
+    })
+
+    test('"Leave it" keeps the pawn where it stands; the burn sends the default warband', async ({ page }) => {
+        await openTable(page, 'spoils')
+        await answer(page, 'Next').click()
+        await expect(spoilsStepCount(page)).toHaveText('2 of 3')
+        await leavePawn(page).click()
+        await expect(spoilsStepCount(page)).toHaveText('3 of 3')
+        await takeAndBurn(page).click()
+        await expect.poll(async () => (await call(page, 'tableFacts')).campaignUnderway).toBe(false)
+        const facts = await call(page, 'tableFacts')
+        expect(facts.siteOf.def).toBe(SPOILS_SITE)
+        expect(facts.favorOf.def).toBe(2)
+        expect(facts.warbandsAt[SPOILS_SITE]?.att).toBe(1)
+    })
+
+    test('Undo steps back one step at a time, each with its choice still marked, then to the default', async ({ page }) => {
+        await openTable(page, 'spoils')
+        await expect(undoButton(page)).toHaveCount(0)
+        await placeButton(page, 3).click()
+        await (await uncovered(page, '.board-card.offered')).click()
+        await expect(spoilsStepCount(page)).toHaveText('3 of 3')
+
+        await undoButton(page).click()
+        await expect(spoilsStepCount(page)).toHaveText('2 of 3')
+        await expect(boardOffers(page)).not.toHaveCount(0)
+        await undoButton(page).click()
+        await expect(spoilsStepCount(page)).toHaveText('1 of 3')
+        await expect(placeButton(page, 3)).toHaveAttribute('aria-pressed', 'true')
+        await expect(boardOffers(page)).toHaveCount(0)
+        await undoButton(page).click()
+        await expect(placeButton(page, 1)).toHaveAttribute('aria-pressed', 'true')
+        await expect(undoButton(page)).toHaveCount(0)
+        expect((await call(page, 'tableFacts')).campaignUnderway).toBe(true)
+    })
+
+    test('two sites taken: a row each, 1 on each, Next to move on; the relic last, with "Take spoils" once it is chosen', async ({
+        page
+    }) => {
+        await openTable(page, 'spoilsRelicHunter')
+        await expect(spoilsStepCount(page)).toHaveText('1 of 2')
+        await expect(grid(page)).toContainText('Place warbands: 2 of 4.')
+        await expect(placeButton(page, 1, 0)).toHaveAttribute('aria-pressed', 'true')
+        await expect(placeButton(page, 1, 1)).toHaveAttribute('aria-pressed', 'true')
+        await placeButton(page, 2, 0).click()
+        await expect(spoilsStepCount(page)).toHaveText('1 of 2')
+        await expect(grid(page)).toContainText('Place warbands: 3 of 4.')
+        await expect(placeButton(page, 3, 1)).toHaveCount(0)
+        await answer(page, 'Next').click()
+
+        await expect(spoilsStepCount(page)).toHaveText('2 of 2')
+        await expect(grid(page)).toContainText('Cup of Plenty')
+        const keep = answer(page, 'Keep it')
+        const bottom = answer(page, 'Bottom of the relic deck')
+        await expect(keep).toHaveAttribute('aria-pressed', 'false')
+        await expect(bottom).toHaveAttribute('aria-pressed', 'false')
+        expect(await widthOf(keep)).toBe(await widthOf(bottom))
+        await expect(takeSpoils(page)).toHaveCount(0)
+        await expect(answer(page, 'Next')).toHaveCount(0)
+        await bottom.click()
+        await expect(spoilsStepCount(page)).toHaveText('2 of 2')
+        await expect(bottom).toHaveAttribute('aria-pressed', 'true')
+        await expect(takeSpoils(page)).toBeVisible()
+
+        await takeSpoils(page).click()
+        await expect.poll(async () => (await call(page, 'tableFacts')).campaignUnderway).toBe(false)
+        const facts = await call(page, 'tableFacts')
+        expect(facts.warbandsAt[SPOILS_SITE]?.att).toBe(2)
+        expect(facts.warbandsAt['slot.provinces.1']?.att).toBe(1)
     })
 })
+
+for (const viewport of [
+    { width: 402, height: 874 },
+    { width: 375, height: 812 }
+]) {
+    test.describe(`scenario 64 on a phone held upright, ${viewport.width} wide`, () => {
+        test.use({ viewport, hasTouch: true })
+
+        test('the numbers and the pawn’s button are a standard size, 44 px tall, never the panel’s width', async ({
+            page
+        }) => {
+            await openTable(page, 'spoils')
+            const panelWidth = (await layoutSizeOf(grid(page)))?.width ?? 0
+            for (let n = 0; n <= 4; n++) {
+                const size = await layoutSizeOf(placeButton(page, n))
+                expect(size?.height).toBe(44)
+                expect(size?.width ?? 0).toBeLessThan(panelWidth / 2)
+            }
+            expect(await clippedLabels(page)).toEqual([])
+            expect(await wrappedLabels(page)).toEqual([])
+
+            await placeButton(page, 2).tap()
+            await expect(banishPrompt(page)).toBeVisible()
+            const leave = await layoutSizeOf(leavePawn(page))
+            expect(leave?.height).toBe(44)
+            expect(leave?.width ?? 0).toBeLessThan(panelWidth * 0.8)
+            expect(await clippedLabels(page)).toEqual([])
+            expect(await wrappedLabels(page)).toEqual([])
+        })
+
+        test('the pawn’s step frames the map on its region under region chips; a tap on a lit site banishes it there', async ({
+            page
+        }) => {
+            await openTable(page, 'spoils')
+            await placeButton(page, 1).tap()
+            await expect(banishPrompt(page)).toBeVisible()
+            await expect(regionChip(page, 'Provinces')).toHaveAttribute('aria-pressed', 'true')
+            await expect(regionChip(page, 'Provinces')).toHaveAccessibleName(/^Provinces: \d+ to banish to$/)
+            const lit = (await litSlots(page)).filter((slotId) => slotId.startsWith('slot.provinces.'))
+            expect(lit.length).toBeGreaterThan(0)
+            const [banishTo] = lit
+            await expect.poll(() => onScreen(page, siteCard(page, banishTo))).toBe(true)
+            const chip = await boxOf(siteAt(page, banishTo).locator('.travel-cost'))
+            expect(inside(chip, await boxOf(siteCard(page, banishTo)))).toBe(true)
+
+            await siteCard(page, banishTo).tap()
+            await expect(spoilsStepCount(page)).toHaveText('3 of 3')
+            await expect(regionChips(page)).toHaveCount(0)
+            await takeSpoils(page).tap()
+            await expect.poll(async () => (await call(page, 'tableFacts')).siteOf.def).toBe(banishTo)
+        })
+    })
+}
 
 const CAMPAIGN_STEPS = [
     'campaignTwoDefenders',
@@ -1591,6 +1788,14 @@ async function completeCampaignStep(page: Page, name: (typeof CAMPAIGN_STEPS)[nu
             await pickCount(page, 0, 1)
             await pickCount(page, 1, 1)
             await expect(answer(page, 'Kill')).toBeVisible()
+            return
+        case 'spoils':
+            // The warbands and the pawn come first; the favor's two buttons send.
+            expect(await clippedLabels(page)).toEqual([])
+            await answer(page, 'Next').click()
+            expect(await clippedLabels(page)).toEqual([])
+            await leavePawn(page).click()
+            await expect(takeSpoils(page)).toBeVisible()
             return
         default:
             return
@@ -2846,88 +3051,237 @@ test('scenario 5: a Campaign target is a row with its picture, a tap adds it and
     await expect(undo).toHaveCount(0)
 })
 
-test('scenario 2: an Exile chooses a start site from the rows, and a tap on another moves the choice', async ({ page }) => {
+/** R-1.23.1 — the start sites of the setup fixture: the top site of each region, faceup. */
+const TOP_CRADLE = 'slot.cradle.0'
+const START_SITES = [TOP_CRADLE, 'slot.hinterland.0', 'slot.provinces.0']
+const startSitesList = (page: Page) => page.getByRole('list', { name: 'Start sites' })
+const pickedSites = (page: Page) => page.locator('.site .board-card.picked')
+const startHere = (page: Page, slotId: string) => siteAt(page, slotId).getByText('start here', { exact: true })
+const siteMagnifiers = (page: Page) => page.locator('.site').getByRole('button', { name: /^Enlarge / })
+
+async function exileAtSetup(page: Page) {
     await openTable(page, 'setup')
     await call(page, 'seatMakesSetupChoice')
-    const sites = page.getByRole('list', { name: 'Start sites' }).locator('button[aria-pressed]')
-    await expect(sites.first()).toBeVisible()
-    expect(await sites.count()).toBeGreaterThan(1)
-    await sites.nth(0).click()
-    await expect(sites.nth(0)).toHaveAttribute('aria-pressed', 'true')
-    await expect(sites.nth(0).getByText('start here')).toBeVisible()
-    await expect(sites.nth(1).getByText('start here')).toBeHidden()
-    await sites.nth(1).click()
-    await expect(sites.nth(1)).toHaveAttribute('aria-pressed', 'true')
-    await expect(sites.nth(0)).toHaveAttribute('aria-pressed', 'false')
-    await expect(sites.nth(0).getByText('start here')).toBeHidden()
-    await expect(sites.nth(1).getByText('start here')).toBeVisible()
+    await expect(page.getByText('Pick a start site and a card to keep.', { exact: true })).toBeVisible()
+}
+
+test('scenario 2: an Exile picks a start site on the map: a click on a lit site rings it with "start here", and a click on another moves the pick', async ({ page }) => {
+    await exileAtSetup(page)
+    await expect(startSitesList(page)).toHaveCount(0)
+    expect(await litSlots(page)).toEqual(START_SITES)
+    await expect(dimmedSites(page)).toHaveCount(5)
+    await expect(page.getByText('start here', { exact: true })).toHaveCount(0)
+    for (const slotId of START_SITES) await expect(siteMagnifier(page, slotId)).toHaveCount(1)
+
+    await siteCard(page, TOP_CRADLE).click()
+    await expect(page.getByText('Keep one.', { exact: true })).toBeVisible()
+    await expect(preview(page)).toHaveCount(0)
+    await expect(pickedSites(page)).toHaveCount(1)
+    await expect(siteCard(page, TOP_CRADLE)).toHaveClass(/picked/)
+    await expect(startHere(page, TOP_CRADLE)).toBeVisible()
+    await expect(page.getByText('start here', { exact: true })).toHaveCount(1)
+    await expect(siteMagnifier(page, TOP_CRADLE)).toHaveCount(0)
+    await expect(siteMagnifiers(page)).toHaveCount(2)
+    expect(await litSlots(page)).toEqual(START_SITES)
+    await expect(dimmedSites(page)).toHaveCount(5)
+
+    await siteCard(page, 'slot.provinces.0').click()
+    await expect(siteCard(page, 'slot.provinces.0')).toHaveClass(/picked/)
+    await expect(pickedSites(page)).toHaveCount(1)
+    await expect(startHere(page, 'slot.provinces.0')).toBeVisible()
+    await expect(startHere(page, TOP_CRADLE)).toHaveCount(0)
+    expect((await call(page, 'tableFacts')).siteOf.me).toBeUndefined()
 })
 
-/** The start-site rows share the widest row's width, which a pick does not change, and stretch across nothing. */
-for (const viewport of [{ width: 1280, height: 900 }, { width: 375, height: 812 }]) {
-    test(`scenario 2: the start-site rows are one width and fit their names at ${viewport.width}`, async ({ page }) => {
+/** The panel keeps the hand and its line; the start sites are on the map at every width. */
+for (const viewport of [{ width: 1280, height: 900 }, { width: 402, height: 874 }, { width: 375, height: 812 }]) {
+    test(`scenario 2: no start-site rows in the panel at ${viewport.width}, only the hand and its line`, async ({ page }) => {
         await page.setViewportSize(viewport)
-        await openTable(page, 'setup')
-        await call(page, 'seatMakesSetupChoice')
-        const sites = page.getByRole('list', { name: 'Start sites' }).locator('button[aria-pressed]')
-        await expect(sites.first()).toBeVisible()
-        const widths = async () => sites.evaluateAll((rows) => rows.map((row) => row instanceof HTMLElement ? row.offsetWidth : 0))
-        const before = await widths()
-        expect(new Set(before).size).toBe(1)
-        const room = await page.getByRole('list', { name: 'Start sites' }).evaluate((list) => list.parentElement?.clientWidth ?? 0)
-        expect(before[0]).toBeLessThan(room)
-        if (viewport.width < 640) {
-            const heights = await sites.evaluateAll((rows) => rows.map((row) => row instanceof HTMLElement ? row.offsetHeight : 0))
-            for (const height of heights) expect(height).toBeGreaterThanOrEqual(44)
-        }
-        await sites.nth(0).click()
-        await expect(sites.nth(0)).toHaveAttribute('aria-pressed', 'true')
-        expect(await widths()).toEqual(before)
+        await exileAtSetup(page)
+        await expect(startSitesList(page)).toHaveCount(0)
+        await expect(panelCards(page)).toHaveCount(3)
+        await expect(magnifiers(page)).toHaveCount(3)
+        await expect(grid(page)).not.toContainText(/cradle|provinces|hinterland/i)
+        if (viewport.width === 402) expect(await panelScale(page)).toBe(1)
     })
 }
 
-test('scenario 2: the other sites dim; a card kept first stays marked, and the site picked after takes the ring off the map', async ({
+test('scenario 2: a card kept first stays marked; the site picked after stays ringed with "start here", the other start sites go dark and nothing dims', async ({
     page
 }) => {
-    await openTable(page, 'setup')
-    await call(page, 'seatMakesSetupChoice')
-    await expect(page.getByRole('list', { name: 'Start sites' })).toBeVisible()
-    const lit = await boardOffers(page).count()
-    expect(lit).toBeGreaterThan(1)
-    expect(await dimmedSites(page).count()).toBeGreaterThan(0)
-    expect(lit + (await dimmedSites(page).count())).toBe(await page.locator('.site').count())
+    await exileAtSetup(page)
+    expect(await litSlots(page)).toEqual(START_SITES)
+    expect((await boardOffers(page).count()) + (await dimmedSites(page).count())).toBe(await page.locator('.site').count())
 
     const card = grid(page).locator('button[aria-pressed]').first()
     await card.click()
     await expect(card).toHaveAttribute('aria-pressed', 'true')
-    await expect(boardOffers(page)).toHaveCount(lit)
-    await page.getByRole('list', { name: 'Start sites' }).locator('button[aria-pressed]').first().click()
-    await expect(boardOffers(page)).toHaveCount(0)
-    await expect(dimmedSites(page)).toHaveCount(0)
+    await expect(page.getByText('Pick a start site.', { exact: true })).toBeVisible()
+    await expect(boardOffers(page)).toHaveCount(3)
+    await siteCard(page, 'slot.hinterland.0').click()
     await expect(page.getByText('Tap to discard; the last goes on top.', { exact: true })).toBeVisible()
+    expect(await litSlots(page)).toEqual(['slot.hinterland.0'])
+    await expect(siteCard(page, 'slot.hinterland.0')).toHaveClass(/picked/)
+    await expect(startHere(page, 'slot.hinterland.0')).toBeVisible()
+    await expect(dimmedSites(page)).toHaveCount(0)
+    await expect(siteMagnifiers(page)).toHaveCount(0)
 })
 
-test('scenario 2: Undo unwinds an Exile’s picks, the card then the site, and the lit map returns', async ({ page }) => {
-    await openTable(page, 'setup')
-    await call(page, 'seatMakesSetupChoice')
-    const sites = page.getByRole('list', { name: 'Start sites' }).locator('button[aria-pressed]')
-    await expect(sites.first()).toBeVisible()
-    const litBefore = await boardOffers(page).count()
-    expect(litBefore).toBeGreaterThan(1)
-    const pickedSites = page.getByRole('list', { name: 'Start sites' }).locator('button[aria-pressed="true"]')
-
-    await sites.nth(0).click()
-    await expect(pickedSites).toHaveCount(1)
-    await panelCards(page).filter({ hasNotText: /start here/ }).first().click()
+test('scenario 2: Undo takes back the last tap: the site tapped after the card first, then the card, and the lit map returns', async ({ page }) => {
+    await exileAtSetup(page)
+    const card = grid(page).locator('button[aria-pressed]').first()
+    await card.click()
+    await siteCard(page, 'slot.provinces.0').click()
     await expect(page.getByText('Tap to discard; the last goes on top.', { exact: true })).toBeVisible()
     await expect(stepBacks(page)).toHaveCount(0)
+
     const undo = undoButton(page)
     await undo.click()
-    await expect(page.getByText('Tap to discard; the last goes on top.', { exact: true })).toHaveCount(0)
-    await expect(pickedSites).toHaveCount(1)
+    await expect(page.getByText('Pick a start site.', { exact: true })).toBeVisible()
+    await expect(pickedSites(page)).toHaveCount(0)
+    await expect(grid(page).locator('button[aria-pressed="true"]')).toHaveCount(1)
+    expect(await litSlots(page)).toEqual(START_SITES)
+    await expect(dimmedSites(page)).toHaveCount(5)
+
     await undo.click()
-    await expect(pickedSites).toHaveCount(0)
-    await expect(boardOffers(page)).toHaveCount(litBefore)
+    await expect(page.getByText('Pick a start site and a card to keep.', { exact: true })).toBeVisible()
+    await expect(grid(page).locator('button[aria-pressed="true"]')).toHaveCount(0)
+    await expect(undo).toHaveCount(0)
+})
+
+test('scenario 1: the Chancellor’s site is ringed with "start here" and cannot be picked; a click enlarges it, and nothing dims', async ({ page }) => {
+    await openTable(page, 'setup')
+    await expect(page.getByText('Keep one.', { exact: true })).toBeVisible()
+    expect(await litSlots(page)).toEqual([TOP_CRADLE])
+    await expect(siteCard(page, TOP_CRADLE)).toHaveClass(/picked/)
+    await expect(startHere(page, TOP_CRADLE)).toBeVisible()
+    await expect(dimmedSites(page)).toHaveCount(0)
+    await expect(siteMagnifiers(page)).toHaveCount(0)
+    await expect(startSitesList(page)).toHaveCount(0)
+
+    await siteCard(page, TOP_CRADLE).click()
+    await expect(preview(page)).toBeVisible()
+    await expect(undoButton(page)).toHaveCount(0)
+})
+
+/** On a phone the lit map is the start sites' menu, framed as Travel's. */
+for (const viewport of [{ width: 402, height: 874 }, { width: 375, height: 812 }]) {
+    test.describe(`scenario 2 on a ${viewport.width} px phone held upright`, () => {
+        test.use({ viewport, hasTouch: true })
+
+        test('the map opens framed on the Cradle under three region chips; the start sites lit, the facedown ones dimmed', async ({ page }) => {
+            await exileAtSetup(page)
+            for (const region of ['Cradle', 'Provinces', 'Hinterland']) {
+                await expect(regionChip(page, region)).toHaveAccessibleName(`${region}: 1 start site`)
+            }
+            await expect(regionChip(page, 'Cradle')).toHaveAttribute('aria-pressed', 'true')
+            await expect.poll(() => onScreen(page, siteCard(page, TOP_CRADLE))).toBe(true)
+            expect(await onScreen(page, siteCard(page, 'slot.provinces.0'))).toBe(false)
+            const chipRow = await boxOf(regionChips(page))
+            expect(chipRow.y + chipRow.height).toBeLessThan((await boxOf(siteCard(page, TOP_CRADLE))).y)
+            expect(await litSlots(page)).toEqual(START_SITES)
+            await expect(dimmedSites(page)).toHaveCount(5)
+            await expect(page.getByText('start here', { exact: true })).toHaveCount(0)
+            const face = await boxOf(siteMagnifier(page, TOP_CRADLE).locator('.site-magnifier__face'))
+            expect(face.width).toBeCloseTo(28, 0)
+            expect(face.height).toBeCloseTo(28, 0)
+        })
+
+        test('a tap on a lit site rings it with "start here" on its card; a chip and a tap in another region move the pick', async ({ page }) => {
+            await exileAtSetup(page)
+            await expect.poll(() => onScreen(page, siteCard(page, TOP_CRADLE))).toBe(true)
+            await siteCard(page, TOP_CRADLE).tap()
+            await expect(page.getByText('Keep one.', { exact: true })).toBeVisible()
+            await expect(siteCard(page, TOP_CRADLE)).toHaveClass(/picked/)
+            const chip = await boxOf(siteAt(page, TOP_CRADLE).locator('.travel-cost'))
+            expect(inside(chip, await boxOf(siteCard(page, TOP_CRADLE)))).toBe(true)
+            await expect(startHere(page, TOP_CRADLE)).toBeVisible()
+            await expect(preview(page)).toHaveCount(0)
+
+            await regionChip(page, 'Provinces').tap()
+            await expect(regionChip(page, 'Provinces')).toHaveAttribute('aria-pressed', 'true')
+            await expect.poll(() => onScreen(page, siteCard(page, 'slot.provinces.0'))).toBe(true)
+            await expect(page.getByText('Keep one.', { exact: true })).toBeVisible()
+            await siteCard(page, 'slot.provinces.0').tap()
+            await expect(siteCard(page, 'slot.provinces.0')).toHaveClass(/picked/)
+            await expect(pickedSites(page)).toHaveCount(1)
+            await expect(startHere(page, 'slot.provinces.0')).toBeVisible()
+        })
+
+        test('a start site’s magnifier enlarges it and picks nothing', async ({ page }) => {
+            await exileAtSetup(page)
+            await expect.poll(() => onScreen(page, siteCard(page, TOP_CRADLE))).toBe(true)
+            await siteMagnifier(page, TOP_CRADLE).tap()
+            await expect(preview(page)).toBeVisible()
+            await page.touchscreen.tap(20, 20)
+            await expect(preview(page)).toHaveCount(0)
+            await expect(pickedSites(page)).toHaveCount(0)
+            await expect(page.getByText('Pick a start site and a card to keep.', { exact: true })).toBeVisible()
+        })
+
+        test('the discards replace the hand; the pick stays ringed under the chips, and the map undims', async ({ page }) => {
+            await exileAtSetup(page)
+            await expect.poll(() => onScreen(page, siteCard(page, TOP_CRADLE))).toBe(true)
+            await siteCard(page, TOP_CRADLE).tap()
+            await panelCards(page).first().tap()
+            await expect(page.getByText('Tap to discard; the last goes on top.', { exact: true })).toBeVisible()
+            await expect(panelCards(page)).toHaveCount(2)
+            expect(await litSlots(page)).toEqual([TOP_CRADLE])
+            await expect(siteCard(page, TOP_CRADLE)).toHaveClass(/picked/)
+            await expect(dimmedSites(page)).toHaveCount(0)
+            await expect(regionChips(page)).toBeVisible()
+            expect(await onScreen(page, siteCard(page, TOP_CRADLE))).toBe(true)
+        })
+
+        test('the Chancellor: the map opens framed on the Cradle with no chips, his site ringed with "start here"', async ({ page }) => {
+            await openTable(page, 'setup')
+            await expect(page.getByText('Keep one.', { exact: true })).toBeVisible()
+            await expect.poll(() => onScreen(page, siteCard(page, TOP_CRADLE))).toBe(true)
+            await expect(regionChips(page)).toHaveCount(0)
+            await expect(siteCard(page, TOP_CRADLE)).toHaveClass(/picked/)
+            await expect(startHere(page, TOP_CRADLE)).toBeVisible()
+            await expect(dimmedSites(page)).toHaveCount(0)
+            await expect(siteMagnifiers(page)).toHaveCount(0)
+        })
+    })
+}
+
+test.describe('scenario 2 on a phone held sideways', () => {
+    test.use({ viewport: { width: 812, height: 375 }, hasTouch: true })
+
+    // The start sites' row across the board's width, where Travel's every-site frame draws it about 0.78 as wide.
+    async function rowFillsTheBoard(page: Page): Promise<boolean> {
+        const [first, last, view] = [
+            await boxOf(siteCard(page, TOP_CRADLE)),
+            await boxOf(siteCard(page, 'slot.hinterland.0')),
+            await boxOf(boardView(page))
+        ]
+        return last.x + last.width - first.x > 0.9 * view.width
+    }
+
+    test('the three start sites are framed at once with no chips; a tap picks one', async ({ page }) => {
+        await exileAtSetup(page)
+        await expect(regionChips(page)).toHaveCount(0)
+        await expect(startSitesList(page)).toHaveCount(0)
+        for (const slotId of START_SITES) {
+            await expect.poll(() => onScreen(page, siteCard(page, slotId))).toBe(true)
+        }
+        await expect.poll(() => rowFillsTheBoard(page)).toBe(true)
+        await siteCard(page, 'slot.hinterland.0').tap()
+        await expect(siteCard(page, 'slot.hinterland.0')).toHaveClass(/picked/)
+        await expect(startHere(page, 'slot.hinterland.0')).toBeVisible()
+    })
+
+    test('the Chancellor’s site is framed in its row with no chips', async ({ page }) => {
+        await openTable(page, 'setup')
+        await expect(page.getByText('Keep one.', { exact: true })).toBeVisible()
+        await expect(regionChips(page)).toHaveCount(0)
+        for (const slotId of START_SITES) {
+            await expect.poll(() => onScreen(page, siteCard(page, slotId))).toBe(true)
+        }
+        await expect.poll(() => rowFillsTheBoard(page)).toBe(true)
+        await expect(siteCard(page, TOP_CRADLE)).toHaveClass(/picked/)
+    })
 })
 
 const favorOn = (page: Page, n: number, site: string) =>
@@ -3185,7 +3539,7 @@ test('scenario 48: History View offers no choice; a click enlarges, the seat, th
 
     await page.getByRole('button', { name: 'go to current' }).click()
     await expect(prompt).toBeVisible()
-    await expect(page.getByRole('list', { name: 'Start sites' })).toBeVisible()
+    await expect(boardOffers(page)).toHaveCount(3)
     await expect(cradle).toHaveAttribute('aria-pressed', 'true')
 })
 
@@ -5471,4 +5825,182 @@ test.describe('Witch’s Bargain: the players at your site, then your pieces for
             expect(await clippedLabels(page)).toEqual([])
         })
     }
+})
+
+/** Scenario 13: the Bandit Crown's figure on the map and the enlarged site's words (R-7.6.5, R-6.6.3, R-5.5.1.a). */
+const CROWN_SITE = 'slot.provinces.1'
+const IMPERIAL_PURPLE = '#943c80'
+const boardBandits = (page: Page) => page.locator('.piece-row .bandits')
+const previewBandits = (page: Page) => preview(page).locator('.piece', { hasText: 'bandits serve' })
+const previewRuledBy = (page: Page) => preview(page).locator('.piece', { hasText: 'ruled by' })
+const chipsIn = (piece: Locator) => piece.locator('span.rounded')
+
+/** The body fill of a bandit figure's picture. */
+async function figureBody(figure: Locator): Promise<string | undefined> {
+    const src = (await figure.getAttribute('src')) ?? ''
+    return decodeURIComponent(src).match(/<path fill="(#[0-9a-f]{6})"/)?.[1]
+}
+
+async function enlargeCrownSite(page: Page) {
+    await (await uncovered(page, `.site[data-slot="${CROWN_SITE}"] .board-card`)).click()
+    await expect(preview(page)).toBeVisible()
+}
+
+test.describe('scenario 13: the Bandit Crown’s bandits on the map and the enlarged site', () => {
+    test('a Citizen holder’s bandits are the Empire’s purple, named Imperial warbands, with no hover', async ({ page }) => {
+        await openTable(page, 'banditCrown')
+        const figures = boardBandits(page)
+        expect(await figures.count()).toBeGreaterThan(1)
+        for (const figure of await figures.all()) {
+            const picture = figure.locator('img')
+            expect(await figureBody(picture)).toBe(IMPERIAL_PURPLE)
+            await expect(picture).toHaveAttribute('alt', 'Bandits serving as Imperial warbands')
+            await expect(figure).not.toHaveAttribute('title')
+        }
+    })
+
+    test('the enlarged site draws the board’s figure, names the holder alone, and every Imperial player who rules it as chips', async ({
+        page
+    }) => {
+        await openTable(page, 'banditCrown')
+        await enlargeCrownSite(page)
+        const bandits = previewBandits(page)
+        await expect(bandits).toHaveText(/^\s*bandits serve\s+ann\s+here\s*$/i)
+        expect(await chipsIn(bandits).allTextContents()).toEqual(['ann'])
+        expect(await figureBody(bandits.locator('img'))).toBe(IMPERIAL_PURPLE)
+        expect(await chipsIn(previewRuledBy(page)).allTextContents()).toEqual(['jacob', 'ann'])
+    })
+
+    test('a Chancellor holder: the same purple; the bandits serve the Chancellor, and both Imperial players rule', async ({
+        page
+    }) => {
+        await openTable(page, 'banditCrownChancellor')
+        for (const figure of await boardBandits(page).all()) {
+            expect(await figureBody(figure.locator('img'))).toBe(IMPERIAL_PURPLE)
+        }
+        await enlargeCrownSite(page)
+        expect(await chipsIn(previewBandits(page)).allTextContents()).toEqual(['jacob'])
+        expect(await figureBody(previewBandits(page).locator('img'))).toBe(IMPERIAL_PURPLE)
+        expect(await chipsIn(previewRuledBy(page)).allTextContents()).toEqual(['jacob', 'ann'])
+    })
+
+    test('an Exile holder is unchanged: her colour, hers alone, named as her chip', async ({ page }) => {
+        await openTable(page, 'banditCrownExile')
+        const red = decodeURIComponent((await boardBandits(page).first().locator('img').getAttribute('src')) ?? '')
+        for (const figure of await boardBandits(page).all()) {
+            expect(await figureBody(figure.locator('img'))).toBe('#e7665b')
+            await expect(figure.locator('img')).toHaveAttribute('alt', 'Bandits serving as warbands')
+        }
+        await enlargeCrownSite(page)
+        expect(decodeURIComponent((await previewBandits(page).locator('img').getAttribute('src')) ?? '')).toBe(red)
+        expect(await chipsIn(previewBandits(page)).allTextContents()).toEqual(['cole'])
+        expect(await chipsIn(previewRuledBy(page)).allTextContents()).toEqual(['cole'])
+    })
+
+    test('while her Campaign against the Chancellor suspends the Citizen holder, the bandits are hers alone, in her colour', async ({
+        page
+    }) => {
+        await openTable(page, 'banditCrownCampaign')
+        for (const figure of await boardBandits(page).all()) {
+            expect(await figureBody(figure.locator('img'))).toBe('#63a3d5')
+            await expect(figure.locator('img')).toHaveAttribute('alt', 'Bandits serving as warbands')
+        }
+        await enlargeCrownSite(page)
+        expect(await figureBody(previewBandits(page).locator('img'))).toBe('#63a3d5')
+        expect(await chipsIn(previewBandits(page)).allTextContents()).toEqual(['ann'])
+        expect(await chipsIn(previewRuledBy(page)).allTextContents()).toEqual(['ann'])
+    })
+})
+
+for (const viewport of [
+    { width: 402, height: 874 },
+    { width: 375, height: 812 }
+]) {
+    test.describe(`scenario 13 on a phone held upright, ${viewport.width} wide`, () => {
+        test.use({ viewport, hasTouch: true })
+
+        test('five Imperial players’ chips wrap between chips, each whole inside the enlarged site’s box', async ({ page }) => {
+            await openTable(page, 'banditCrownFive')
+            await siteCard(page, CROWN_SITE).tap()
+            await expect(preview(page)).toBeVisible()
+            const ruledBy = previewRuledBy(page)
+            const chips = chipsIn(ruledBy)
+            expect(await chips.allTextContents()).toEqual(['jacob', 'ann', 'bea', 'dov', 'wes'])
+            const box = await boxOf(ruledBy.locator('xpath=..'))
+            const lineHeight = (await boxOf(chipsIn(previewBandits(page)))).height
+            for (const chip of await boxesOf(chips)) {
+                expect(inside(chip, box)).toBe(true)
+                expect(chip.height, 'a chip on one line').toBeLessThan(lineHeight * 1.5)
+            }
+        })
+    })
+}
+
+/** Toll Roads on a power's move and Forced Labor on Oracle: the moved player's question, the mover's wait, Oracle's toll line. */
+test.describe('Toll Roads when a power moves another player', () => {
+    const answers = (page: Page) => ({
+        pay: grid(page).getByRole('button', { name: 'Pay', exact: true }),
+        refuse: grid(page).getByRole('button', { name: 'Refuse', exact: true })
+    })
+
+    test('the moved player is asked; Pay sends them, and the History tells the whole story', async ({ page }) => {
+        expect((await openTable(page, 'tollAsked')).seatId).toBe('Jacob')
+        await expect(grid(page).getByRole('heading', { name: 'Toll Roads' })).toBeVisible()
+        await expect(grid(page)).toContainText('Pay Cole 1?')
+        const { pay, refuse } = answers(page)
+        const [payBox, refuseBox] = [await pay.boundingBox(), await refuse.boundingBox()]
+        // Desktop: the two answers share the wider label's width, and nothing stretches.
+        expect(payBox?.width).toBeCloseTo(refuseBox?.width ?? 0, 0)
+        expect(payBox?.width ?? 999).toBeLessThan(120)
+
+        await pay.click()
+        await expect.poll(async () => (await call(page, 'tableFacts')).siteOf.Jacob).toBe('slot.provinces.1')
+        expect((await call(page, 'tableFacts')).favorOf).toMatchObject({ Jacob: 3, Cole: 4 })
+        await page.getByRole('tab', { name: 'History' }).click()
+        const history = page.locator('.history')
+        await expect(history).toContainText("used the Whistle on Jacob; Jacob paid you 1 (Toll Roads) and went to the Great Slum, taking the Whistle's 1")
+        await expect(history).toContainText('used the Whistle on Jacob, placing 1 on it')
+    })
+
+    test('Refuse leaves the pawn where it was', async ({ page }) => {
+        await openTable(page, 'tollAsked')
+        await answers(page).refuse.click()
+        await expect(answers(page).refuse).toHaveCount(0)
+        expect((await call(page, 'tableFacts')).siteOf.Jacob).toBe('slot.provinces.2')
+    })
+
+    test('the mover reads only who they are waiting on', async ({ page }) => {
+        await openTable(page, 'tollAsked')
+        expect(await call(page, 'viewOffTheClock')).toBe('Cole')
+        await expect(grid(page).getByRole('heading', { name: 'Toll Roads' })).toBeVisible()
+        await expect(grid(page)).toContainText('Waiting on Jacob.')
+        await expect(answers(page).pay).toHaveCount(0)
+    })
+
+    test('Oracle at a Forced Labor site shows its toll; with no favor its row is hidden', async ({ page }) => {
+        await openTable(page, 'oracleToll')
+        await usePower(page).click()
+        const oracle = grid(page).locator('div.flex.gap-2.items-start').filter({ hasText: 'Oracle' })
+        await expect(oracle).toContainText('+1 to Cole')
+
+        await openTable(page, 'oracleNoFavor')
+        await usePower(page).click()
+        await expect(grid(page)).toContainText('Whistle')
+        await expect(grid(page).getByText('Oracle', { exact: true })).toHaveCount(0)
+    })
+
+    test.describe('on a phone', () => {
+        test.use({ viewport: { width: 375, height: 812 } })
+
+        test('Pay and Refuse are a standard size: one width, side by side, 44 px tall, never stretched', async ({ page }) => {
+            await openTable(page, 'tollAsked')
+            const { pay, refuse } = answers(page)
+            await expect(pay).toBeVisible()
+            const [payBox, refuseBox, panelBox] = [await pay.boundingBox(), await refuse.boundingBox(), await grid(page).boundingBox()]
+            expect(payBox?.width).toBeCloseTo(refuseBox?.width ?? 0, 0)
+            expect(payBox?.y).toBeCloseTo(refuseBox?.y ?? 0, 0)
+            expect(payBox?.height ?? 0).toBeGreaterThanOrEqual(44)
+            expect((payBox?.width ?? 999) + (refuseBox?.width ?? 999)).toBeLessThan((panelBox?.width ?? 0) * 0.6)
+        })
+    })
 })

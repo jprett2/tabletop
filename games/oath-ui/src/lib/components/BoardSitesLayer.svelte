@@ -20,8 +20,22 @@
 
     let offers = $derived(gameSession.siteOffers)
 
-    // On a phone the lit map is Travel's menu: a tap on a destination picks it.
+    // The lit map is Setup's start-site menu, the spoils' banish, and on a phone Travel's: a tap
+    // on a lit site picks it.
     const layout = new PhoneLayout()
+
+    function pickOnMap(offer: SiteOffer | undefined): (() => void) | undefined {
+        if (offer?.intent === 'start' && offer.pickable) {
+            return () => gameSession.setup.chooseSite(offer.slotId)
+        }
+        if (offer?.intent === 'banish') {
+            return () => gameSession.victory.banishTo(offer.slotId)
+        }
+        if (offer?.intent === 'travel' && layout.phone) {
+            return () => void gameSession.pickTravelSite(offer.slotId)
+        }
+        return undefined
+    }
 
     const SITE_ASPECT = cardAspect({ back: CardKind.Site })
 
@@ -39,9 +53,10 @@
         const resting = restingLabel(slotId)
         switch (offer?.intent) {
             case 'start':
+                // "start here" marks the pick alone; the other start sites are lit with no chip.
                 return {
                     title: `${siteName(gameState, slotId)} — a start site`,
-                    chip: { words: offer.label }
+                    chip: offer.picked ? { words: offer.label } : undefined
                 }
             case 'travel':
                 // R-5.6.1 prices by region, R-7.1.4 adds tolls, R-11.12 the Buried Giant's flip.
@@ -66,6 +81,8 @@
                     title: 'Warbands may move from your board onto this site',
                     chip: undefined
                 }
+            case 'banish':
+                return { title: resting, chip: { words: 'banish' } }
             case undefined:
                 return { title: resting, chip: undefined }
         }
@@ -94,13 +111,16 @@
     {@const targeted = offer?.intent === 'target' && offer.targeted}
     {@const tokens = cardId ? gameState.tokensOn(cardId) : { favor: 0, secrets: 0 }}
     {@const text = offerText(slotId, offer)}
-    {@const onMap = layout.phone && offer?.intent === 'travel'}
+    {@const onpick = pickOnMap(offer)}
+    {@const onPhoneMap =
+        layout.phone &&
+        (offer?.intent === 'travel' || offer?.intent === 'start' || offer?.intent === 'banish')}
 
     <div
         class="site"
         class:dimmed={gameSession.mapDimmed && !offer}
         class:targeted
-        class:on-map={onMap}
+        class:on-map={onPhoneMap}
         data-slot={slotId}
         style="left:{rect.x}px; top:{rect.y}px; width:{rect.width}px; height:{rect.height}px;"
     >
@@ -113,10 +133,10 @@
             width={rect.width}
             offered={offer !== undefined}
             pointed={menuPointer.is({ kind: 'site', slotId })}
-            picked={offer?.intent === 'travel' && offer.picked}
+            picked={(offer?.intent === 'travel' || offer?.intent === 'start') && offer.picked}
             previewSlotId={slotId}
             title={text.title}
-            onpick={onMap ? () => void gameSession.pickTravelSite(slotId) : undefined}
+            {onpick}
         />
 
         {#if text.chip !== undefined}
@@ -142,7 +162,7 @@
             </span>
         {/if}
 
-        {#if onMap}
+        {#if onpick}
             <SiteMagnifier
                 preview={{
                     cardId,

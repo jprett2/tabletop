@@ -6,6 +6,7 @@ import { ActionType } from '../definition/actions.js'
 import { Region, SearchPlay, Suit } from './oathEnums.js'
 import { ConspiracyPlay } from './conspiracy.js'
 import { WarbandOwner } from './warbandCounts.js'
+import { PowerMoveKind } from './powerMoveToll.js'
 
 export const AskedPlayerPolicy = 'oath.askedPlayer'
 
@@ -156,7 +157,9 @@ export enum PowerQuestionKind {
      * Second Wind out of turn (revision 7) — the holder's free Travel, then free Campaign, before the
      * held turn resumes: answered by the action itself, or skipped.
      */
-    FreeActionOutOfTurn = 'freeActionOutOfTurn'
+    FreeActionOutOfTurn = 'freeActionOutOfTurn',
+    /** Toll Roads — a power moves the asked player into its ruler's site: give the favor, or refuse and stay. */
+    PayTravelToll = 'payTravelToll'
 }
 
 /** Deed Writer — a site changing hands. */
@@ -373,6 +376,22 @@ export const PowerQuestion = Type.Union([
         askedPlayerId: Type.String(),
         /** "you may travel and then may campaign" — the one asked now. */
         action: Type.Union([Type.Literal(ActionType.Travel), Type.Literal(ActionType.Campaign)])
+    }),
+    Type.Object({
+        kind: Type.Literal(PowerQuestionKind.PayTravelToll),
+        cardId: Type.String(),
+        askedPlayerId: Type.String(),
+        /** Absent: the bandits rule the card, so the favor is burned. */
+        payeeId: Type.Optional(Type.String()),
+        move: Type.Enum(PowerMoveKind),
+        powerCardId: Type.Optional(Type.String()),
+        moverPlayerId: Type.String(),
+        fromSiteId: Type.String(),
+        siteId: Type.String(),
+        /** R-5.5.7.III — the attacker's burn, which waits on the answer. */
+        burnFavor: Type.Optional(Type.Boolean()),
+        /** R-11.7 — the traveller's own Travel out of the Shrouded Wood, which pays its Supply once the toll is paid. */
+        travel: Type.Optional(ShroudedWoodTravel)
     })
 ])
 
@@ -452,7 +471,8 @@ export const QuestionAnswer = Type.Union([
     Type.Object({
         kind: Type.Literal(PowerQuestionKind.FreeActionOutOfTurn),
         take: Type.Literal(false)
-    })
+    }),
+    Type.Object({ kind: Type.Literal(PowerQuestionKind.PayTravelToll), pay: Type.Boolean() })
 ])
 
 export type QuestionOf<K extends PowerQuestionKind> = Extract<PowerQuestion, { kind: K }>

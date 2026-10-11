@@ -127,7 +127,12 @@ const FORCED_OUTCOMES: { [K in PowerQuestionKind]: ForcedOutcome<K> } = {
         if (!refused) return undefined
         forgoFreeActionNext(state, question.askedPlayerId, question.action)
         return `${question.askedPlayerId} cannot take the free ${question.action === ActionType.Travel ? 'Travel' : 'Campaign'}: ${refused}`
-    }
+    },
+    // Toll Roads — with no favor to give there is nothing to ask: the move is blocked.
+    [PowerQuestionKind.PayTravelToll]: (state, question) =>
+        usableFavor(state, question.askedPlayerId) < 1
+            ? `${question.askedPlayerId} has no favor for ${question.cardId}`
+            : undefined
 }
 
 /** Second Wind out of turn — asked for the next action, so judged as that action will be: free. */

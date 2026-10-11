@@ -1,4 +1,4 @@
-import { assertExists } from '@tabletop/common'
+import { assert, assertExists } from '@tabletop/common'
 import { burnFavor } from './burn.js'
 import { gainFavorFromBank, giveFavor, spendFavor, usableFavor } from './favor.js'
 import { HydratedOathGameState, discardRegionFor } from '../model/gameState.js'
@@ -43,6 +43,14 @@ import { reasonWoodPickRefused, settleWoodPick, shroudedWoodDestinations } from 
 import { forgoFreeActionNow } from './freeActions.js'
 import { endStepOutOfTurn, holdTurnForSkippedFreeAction } from './sneakAttack.js'
 import { ActionType } from '../definition/actions.js'
+import {
+    askPowerMoveToll,
+    canPayPowerMoveToll,
+    powerMoveToll,
+    settlePowerMoveToll
+} from './powerMoveTolls.js'
+import { payToll } from './tolls.js'
+import { PowerMoveKind, PowerMoveTollOutcome } from '../model/powerMoveToll.js'
 
 function listOf(id: string | undefined): string[] {
     return id === undefined ? [] : [id]
@@ -306,9 +314,26 @@ export const QUESTION_RULES: { [K in PowerQuestionKind]: QuestionRules<K> } = {
                 ? undefined
                 : `${siteId} is not a site ${travelerPlayerId} can be sent to`
         },
-        apply: (state, _playerId, matched) => {
+        apply: (state, playerId, matched, _asked, askingPlayerId) => {
             const { travelerPlayerId, travel } = matched.question
             const siteId = matched.answer.siteId
+            const toll = powerMoveToll(state, travelerPlayerId, siteId)
+            if (travel && toll) {
+                // R-11.7, Toll Roads — the toll is asked before any Supply: paid, the Travel settles.
+                const move = {
+                    move: PowerMoveKind.ShroudedWood,
+                    moverPlayerId: playerId,
+                    movedPlayerId: travelerPlayerId,
+                    toSiteId: siteId,
+                    travel
+                }
+                const tollMove = askPowerMoveToll(state, move, toll, askingPlayerId, true)
+                assert(
+                    tollMove.outcome === PowerMoveTollOutcome.Asked,
+                    'The ruler picks only a site whose toll the traveller can pay'
+                )
+                return { summary: `chose ${siteId} for ${travelerPlayerId}`, tollMove }
+            }
             if (travel) {
                 const { pick, revealed } = settleWoodPick(
                     state,
@@ -322,6 +347,16 @@ export const QUESTION_RULES: { [K in PowerQuestionKind]: QuestionRules<K> } = {
                     ? { summary, woodPick: pick, disclosed: true }
                     : { summary, woodPick: pick }
             }
+            if (toll) {
+                const move = {
+                    move: PowerMoveKind.ShroudedWood,
+                    moverPlayerId: playerId,
+                    movedPlayerId: travelerPlayerId,
+                    toSiteId: siteId
+                }
+                const tollMove = askPowerMoveToll(state, move, toll, askingPlayerId, true)
+                return { summary: `chose ${siteId} for ${travelerPlayerId}`, tollMove }
+            }
             const { notes, revealed } = travelByPower(state, travelerPlayerId, siteId)
             const summary = `sent ${travelerPlayerId} to ${siteId}${notes.length ? ` (${notes.join('; ')})` : ''}`
             return revealed ? { summary, disclosed: true } : summary
@@ -333,12 +368,22 @@ export const QUESTION_RULES: { [K in PowerQuestionKind]: QuestionRules<K> } = {
             if (!matched.question.siteIds.includes(siteId)) {
                 return `${siteId} is not one of the sites the Brass Horse named`
             }
+            if (!canPayPowerMoveToll(state, playerId, siteId)) {
+                return `travelling to ${siteId} takes a favor for its toll and you have none`
+            }
             return reasonCannotTravelByPower(state, playerId, siteId)
         },
         apply: (state, playerId, matched) => {
             const siteId = matched.answer.siteId
+            // Toll Roads — Brass Horse's user travels, so they pay as they go.
+            const toll = powerMoveToll(state, playerId, siteId)
+            if (toll) payToll(state, playerId, toll)
             const { notes } = travelByPower(state, playerId, siteId)
-            return `travelled to ${siteId} for no Supply${notes.length ? ` (${notes.join('; ')})` : ''}`
+            const after = notes.length ? ` (${notes.join('; ')})` : ''
+            if (!toll) return `travelled to ${siteId} for no Supply${after}`
+            // The History's form for a toll inside a row: what was paid, then the card.
+            const paid = toll.payeeId ? `paid ${toll.payeeId}` : 'burned'
+            return `travelled to ${siteId} for no Supply; ${paid} 1 favor (${toll.cardId})${after}`
         }
     },
     [PowerQuestionKind.RerollDice]: {
@@ -503,6 +548,42 @@ export const QUESTION_RULES: { [K in PowerQuestionKind]: QuestionRules<K> } = {
             return {
                 summary: `discarded ${ordered.join(', ')} in that order`,
                 pileDeposits
+            }
+        }
+    },
+    [PowerQuestionKind.PayTravelToll]: {
+        reasonCannotAnswer: (state, playerId, matched) => {
+            const usable = usableFavor(state, playerId)
+            return matched.answer.pay && usable < 1
+                ? `paying takes 1 favor and you have ${usable}`
+                : undefined
+        },
+        apply: (state, _playerId, matched) => {
+            const { question } = matched
+            const tollMove = settlePowerMoveToll(state, question, matched.answer.pay)
+            const paid = `${question.payeeId ? `paid ${question.payeeId}` : 'burned'} 1 favor and went to ${question.siteId}`
+            if (!matched.answer.pay) {
+                return {
+                    summary: `refused ${question.cardId} and stayed at ${question.fromSiteId}`,
+                    tollMove
+                }
+            }
+            if (!question.travel) return { summary: paid, tollMove }
+            // R-11.7 — the toll paid, the Travel pays the Wood's Supply folded for the site, then Tyrant and the site's powers.
+            const { pick, revealed } = settleWoodPick(
+                state,
+                question.askedPlayerId,
+                question.siteId,
+                question.travel.free
+            )
+            assert(
+                revealed === undefined,
+                'Toll Roads asks only for a site its ruler rules, and a ruled site is faceup'
+            )
+            return {
+                summary: `${paid}, paying ${pick.supplySpent} Supply`,
+                tollMove,
+                woodPick: pick
             }
         }
     },

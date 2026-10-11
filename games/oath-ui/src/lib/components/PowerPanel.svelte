@@ -1,10 +1,12 @@
 <script lang="ts">
     import TokenText from '$lib/components/TokenText.svelte'
+    import { PlayerName } from '@tabletop/frontend-components'
     import { assertExists } from '@tabletop/common'
     import { cardPower, powerKey, type LegalPowerUse, type PowerUseKey } from '@tabletop/oath'
     import CardImage from '$lib/components/CardImage.svelte'
     import Magnifier from '$lib/components/Magnifier.svelte'
     import PowerChoicePicker from '$lib/components/PowerChoicePicker.svelte'
+    import FavorCost from '$lib/components/FavorCost.svelte'
     import { getGameSession } from '$lib/model/sessionContext.svelte.js'
     import { cardName } from '$lib/model/names.js'
     import { MAJOR_ACTIONS } from '$lib/model/actionCatalogue.js'
@@ -110,12 +112,21 @@
             </span>
             <div class="grow min-w-0">
                 <div class="text-sm font-semibold">{name}</div>
+                {#each draft.tollsOf(p) as toll (toll.cardId)}
+                    <p class="mt-1 text-sm">
+                        <FavorCost sign="+" count={1} />
+                        {#if toll.payeeId}to <PlayerName
+                                playerId={toll.payeeId}
+                            />{:else}burned{/if}
+                    </p>
+                {/each}
                 {#if p.choices.length > 0}
                     <div class="mt-1">
                         <PowerChoicePicker
                             tallOnPhone
                             choices={p.choices}
                             bind:picks={() => draft.picksOf(p), (picks) => draft.setPicks(p, picks)}
+                            tollAt={draft.moveTollAt(p)}
                         />
                     </div>
                 {/if}

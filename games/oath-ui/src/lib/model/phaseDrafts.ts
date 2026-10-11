@@ -34,7 +34,11 @@ import {
     type WakeFavorStep,
     type WarbandGroup,
     OathRevision,
-    isAtLeastOathRevision
+    isAtLeastOathRevision,
+    cardPower,
+    powerMoveToll,
+    powerTolls,
+    type Toll
 } from '@tabletop/oath'
 import { assert, assertExists, range } from '@tabletop/common'
 import {
@@ -407,6 +411,8 @@ export class RestDraft extends OneStepDraft<Record<string, Suit>> {
     }
 }
 
+const PALANQUIN = 'denizen.order.palanquin'
+
 type PicksByPower = Record<string, PowerChoicePicks>
 
 /**
@@ -460,6 +466,25 @@ export class ActionPowersDraft extends OneStepDraft<PicksByPower[]> {
 
     choicesFor(power: LegalPowerUse): PowerChoice[] {
         return powerChoicesFrom(power.choices, this.picksOf(power))
+    }
+
+    /** Forced Labor on Oracle — the tolls a use gives, shown on its row. */
+    tollsOf(power: LegalPowerUse): Toll[] {
+        const playerId = this.playerId
+        const printed = cardPower(power.cardId, power.powerIndex)
+        return playerId && printed ? powerTolls(this.session.gameState, playerId, printed) : []
+    }
+
+    /** Toll Roads — Palanquin's chosen player would be asked to pay at that site. */
+    moveTollAt(power: LegalPowerUse): (siteId: string) => boolean {
+        const moved =
+            power.cardId === PALANQUIN
+                ? this.choicesFor(power).find((choice) => choice.kind === PowerChoiceKind.Player)
+                : undefined
+        const state = this.session.gameState
+        return (siteId) =>
+            moved?.kind === PowerChoiceKind.Player &&
+            powerMoveToll(state, moved.playerId, siteId) !== undefined
     }
 
     reasonCannotUse(power: LegalPowerUse): string | undefined {

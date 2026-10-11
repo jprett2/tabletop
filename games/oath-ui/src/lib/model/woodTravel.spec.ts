@@ -4,6 +4,7 @@ import { ActionType, OathRevision, PowerQuestionKind, Region, Travel, isAnswerQu
 import { disposeSessions, openSessionOn, played, tableOf } from '$lib/testing/sessionHarness.js'
 import { shroudedWoodState } from '$lib/testing/shroudedWoodTable.js'
 import { woodCommonCost, woodCostNoteShort } from './woodTravel.js'
+import { gridRefusal, refusalWords } from './actionAvailability.js'
 
 afterEach(() => {
     disposeSessions()
@@ -82,5 +83,55 @@ describe('R-11.7 — the ruler picks where the traveller goes', () => {
         const answer = sent.mock.calls[0][0]
         assert(isAnswerQuestion(answer), 'the pick is sent')
         expect(answer.answer).toEqual({ kind: PowerQuestionKind.ShroudedWoodDestination, siteId: 'p2' })
+    })
+})
+
+describe('R-11.7, Toll Roads — the ruler’s pick into a site whose ruler holds Toll Roads', () => {
+    const TOLL_ROADS = 'denizen.order.toll-roads'
+
+    /** Cole also rules p2, which holds Toll Roads; Jacob has `favor`. */
+    function tollState(favor: number, oathRevision: number = OathRevision.UiBatch1) {
+        const state = shroudedWoodState(2, { oathRevision })
+        state.denizensBySite = { ...state.denizensBySite, p2: [TOLL_ROADS] }
+        state.warbandsBySite = { ...state.warbandsBySite, p2: { Cole: 1 } }
+        state.getPlayerState('Jacob').favor = favor
+        return state
+    }
+
+    function rulerSession(state: ReturnType<typeof shroudedWoodState>) {
+        const table = played(tableOf(state), [createAction(Travel, { gameId: state.gameId, source: ActionSource.User, playerId: 'Jacob' })])
+        return openSessionOn(table)
+    }
+
+    it('marks the toll site among the picks', () => {
+        const session = rulerSession(tollState(1))
+        expect(session.question.woodDestinations).toEqual(['c1', 'c2', 'p2', 'p3'])
+        expect(session.question.woodDestinations.filter((siteId) => session.question.woodTollAt(siteId))).toEqual(['p2'])
+    })
+
+    it('the grid names the cheapest Supply among the sites whose toll the traveller can pay', () => {
+        // Decadent's 0 into the Cradle, whose two sites Cole rules: with no favor Jacob cannot be sent there.
+        const state = tollState(0)
+        state.getPlayerState('Jacob').supply = 1
+        state.denizensBySite = { ...state.denizensBySite, p2: [], c1: [TOLL_ROADS] }
+        state.warbandsBySite = { ...state.warbandsBySite, p2: {}, c1: { Cole: 1 }, c2: { Cole: 1 } }
+        const session = openSessionOn(tableOf(state))
+        const refusal = gridRefusal(session.gameState, 'Jacob', ActionType.Travel)
+        expect(refusal).toEqual({ cause: 'supply', needs: 2, has: 1 })
+        expect(refusal && refusal.cause !== 'engine' ? refusalWords(refusal) : undefined).toBe('Needs 2 Supply; you have 1.')
+    })
+
+    it('a game created before the revision asks no toll, so marks none', () => {
+        const session = rulerSession(tollState(1, OathRevision.EngineFixes2))
+        expect(session.question.woodTollAt('p2')).toBe(false)
+    })
+
+    it('when every site takes a favor the traveller does not have, the grid says the favor', () => {
+        const state = tollState(0)
+        state.warbandsBySite = Object.fromEntries(Object.keys(state.siteCards).map((siteId) => [siteId, { Cole: 1 }]))
+        const session = openSessionOn(tableOf(state))
+        const refusal = gridRefusal(session.gameState, 'Jacob', ActionType.Travel)
+        expect(refusal).toEqual({ cause: 'favor', has: 0 })
+        expect(refusal && refusal.cause !== 'engine' ? refusalWords(refusal) : undefined).toBe('Needs 1 favor; you have 0.')
     })
 })

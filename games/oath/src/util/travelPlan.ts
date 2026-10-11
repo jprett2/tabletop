@@ -13,10 +13,11 @@ import { foldSupplyCost, resolveModifiers, type ActionPlan, type ModifierUse } f
 import {
     isFreeTravelNow,
     payableWoodPicks,
-    shroudedWoodDestinations,
+    tollPayableWoodSites,
     woodPick,
     woodTravelPaysAtPick
 } from './shroudedWood.js'
+import { usableFavor } from './favor.js'
 import { pawnSiteId, regionOfPawn } from './pawn.js'
 import {
     modifierPayment,
@@ -69,12 +70,12 @@ export function reasonCannotLeaveShroudedWood(
     }
     const free = isFreeTravelNow(state, playerId)
     if (payableWoodPicks(state, playerId, free).length > 0) return undefined
-    const here = pawnSiteId(state, playerId)
-    const cheapest = Math.min(
-        ...shroudedWoodDestinations(state, playerId, here).map(
-            (siteId) => woodPick(state, playerId, siteId, free).cost
-        )
-    )
+    const sites = tollPayableWoodSites(state, playerId)
+    if (sites.length === 0) {
+        const favor = usableFavor(state, playerId)
+        return `${chooser} would pick where you go, and every site takes a favor for its toll: you have ${favor}`
+    }
+    const cheapest = Math.min(...sites.map((siteId) => woodPick(state, playerId, siteId, free).cost))
     return `${chooser} would pick where you go, and you can pay for no site: the cheapest is ${cheapest} Supply, you have ${supply}`
 }
 

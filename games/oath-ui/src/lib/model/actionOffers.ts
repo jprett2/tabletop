@@ -16,9 +16,36 @@ import {
     type TravelTerms
 } from '@tabletop/oath'
 
-export type BoardPick = { sites: string[]; label: string }
+/**
+ * R-1.23.1 — Setup's start sites on the map: lit while the pick is open (`pickable`), the one
+ * picked marked; once the discards are asked, or when one site is legal, the pick alone.
+ */
+export type BoardPick = {
+    sites: string[]
+    label: string
+    picked: string | undefined
+    pickable: boolean
+}
+
+/** A choice made by tapping the map, as a phone frames it: the sites its frame and chips count. */
+export type MapPick = {
+    /** Setup's start site, a Travel destination, or where the spoils banish the defeated pawn. */
+    kind: 'start' | 'travel' | 'banish'
+    sites: string[]
+    /** More than one site to choose among; Setup's one legal site is shown, not chosen. */
+    choosing: boolean
+}
+
 export type SiteOffer =
-    | { slotId: string; intent: 'start'; label: string }
+    | {
+          slotId: string
+          intent: 'start'
+          label: string
+          /** The site picked so far: ringed and marked with the label. */
+          picked: boolean
+          /** A tap on the map picks it. */
+          pickable: boolean
+      }
     | {
           slotId: string
           intent: 'travel'
@@ -30,6 +57,8 @@ export type SiteOffer =
       }
     | { slotId: string; intent: 'target'; targeted: boolean }
     | { slotId: string; intent: 'moveWarbands' }
+    /** R-5.5.7.III — a tap on the map banishes the defeated pawn there. */
+    | { slotId: string; intent: 'banish' }
 
 /** R-5.4.2 — every amount the engine accepts, lowest first. */
 /** R-1.16 — favor the Chancellor places on one site at setup. */

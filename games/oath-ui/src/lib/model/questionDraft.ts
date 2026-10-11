@@ -11,6 +11,7 @@ import {
     heldRelicsToBottom,
     payableWoodPicks,
     playersAt,
+    powerMoveToll,
     shroudedWoodDestinations,
     usableFavor,
     type ConspiracyPlay,
@@ -375,6 +376,24 @@ export class QuestionDraft implements PanelDraft {
         await this.send({ kind: PowerQuestionKind.BottomRelic, heldRelicCardId })
     }
 
+    /** Toll Roads — Brass Horse's user pays at a toll site, so its button says so. */
+    travelTollAt(siteId: string): boolean {
+        const question = this.question
+        return (
+            question?.kind === PowerQuestionKind.TravelFreeTo &&
+            powerMoveToll(this.session.gameState, question.askedPlayerId, siteId) !== undefined
+        )
+    }
+
+    /** Toll Roads — the Shrouded Wood's traveller would be asked to pay at that site, so its pick says so. */
+    woodTollAt(siteId: string): boolean {
+        const question = this.question
+        return (
+            question?.kind === PowerQuestionKind.ShroudedWoodDestination &&
+            powerMoveToll(this.session.gameState, question.travelerPlayerId, siteId) !== undefined
+        )
+    }
+
     async travelTo(siteId: string): Promise<void> {
         await this.send({ kind: PowerQuestionKind.TravelFreeTo, siteId })
     }
@@ -481,6 +500,8 @@ export class QuestionDraft implements PanelDraft {
                 assertExists(withPlayerId, 'A proposal needs the player chosen')
                 return { kind: question.kind, proposal: { withPlayerId, terms: this.floorTerms } }
             }
+            case PowerQuestionKind.PayTravelToll:
+                return { kind: question.kind, pay: yes }
             case PowerQuestionKind.SneakAttack:
                 assert(!yes, 'A Sneak Attack is taken by campaigning, not by an answer')
                 return { kind: question.kind, campaign: false }

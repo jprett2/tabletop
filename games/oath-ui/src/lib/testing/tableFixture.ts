@@ -2,11 +2,13 @@ import { mount, tick, unmount } from 'svelte'
 import { ActionSource, Color, assertExists, createAction, range } from '@tabletop/common'
 import {
     ActionType,
+    AnswerQuestion,
     Banner,
     CampaignDefend,
     CampaignSacrifice,
     CampaignTargetKind,
     Campaign,
+    CURRENT_OATH_REVISION,
     ConsentRequestKind,
     HydratedCampaignSacrifice,
     HydratedOathGameState,
@@ -33,6 +35,10 @@ import {
     Suit,
     TOP_CRADLE_SLOT,
     Travel,
+    UseActionPower,
+    PowerChoiceKind,
+    PowerTiming,
+    powerIndexOf,
     WarbandMoveKind,
     allMapSlots,
     type WarbandMove,
@@ -135,6 +141,7 @@ export type TableName =
     | 'sacrificeMixed'
     | 'wonOutright'
     | 'spoils'
+    | 'spoilsRelicHunter'
     | QuestionTableName
     | 'warbandGiveAsked'
     | 'offerCitizenship'
@@ -163,6 +170,16 @@ export type TableName =
     | 'witchsBargain'
     | 'witchsBargainSilenced'
     | 'witchsBargainOneOther'
+    | 'woodRulerToll'
+    | 'woodTollAsked'
+    | 'banditCrown'
+    | 'banditCrownChancellor'
+    | 'banditCrownExile'
+    | 'banditCrownCampaign'
+    | 'banditCrownFive'
+    | 'tollAsked'
+    | 'oracleToll'
+    | 'oracleNoFavor'
 
 const PROPHET_ADVISERS = [
     'denizen.order.messenger',
@@ -1318,7 +1335,7 @@ const HORSE_ARCHERS = 'denizen.nomad.horse-archers'
  * the top Provinces site, which 'def' rules: the defender's plans, the attacker's plans after the
  * Citizens answered, the sacrifice (one group, two, or none needed) and the spoils.
  */
-function battleTable(step: BattleStep): PlayedTable {
+function battleState(step: BattleStep): HydratedOathGameState {
     const site = mapSlotId(Region.Provinces, 0)
     const mixed = step === 'sacrificeMixed'
     const rolled = {
@@ -1375,7 +1392,11 @@ function battleTable(step: BattleStep): PlayedTable {
             }[step],
             chancellorPlayerId: 'ann',
             map: allMapSlots(),
-            siteCards: fixtureSitesOnTheBoard(),
+            // The spoils draw the site taken: a printed site with no power that acts on them.
+            siteCards:
+                step === 'spoils'
+                    ? { ...fixtureSitesOnTheBoard(), [site]: 'site.steppe' }
+                    : fixtureSitesOnTheBoard(),
             warbandsBySite: { [site]: { def: 1 } },
             banners: testBanners({ [Banner.PeoplesFavor]: 'def' }),
             pendingCampaign:
@@ -1427,6 +1448,32 @@ function battleTable(step: BattleStep): PlayedTable {
     )
     openTurn(state, 'att')
     state.activePlayerIds = [step === 'defenderPlans' ? 'def' : 'att']
+    return state
+}
+
+function battleTable(step: BattleStep): PlayedTable {
+    return tableOf(battleState(step))
+}
+
+/**
+ * R-5.5.7, Relic Hunter — the spoils of the same battle when 'att' took the top two Provinces
+ * sites and the relic lying at the first (seen, as the targeted relics are), but not the pawn.
+ */
+function spoilsRelicHunterTable(): PlayedTable {
+    const state = battleState('spoils')
+    const [first, second] = mapSlotsFor(Region.Provinces)
+    const slotId = `${first}.relic.0`
+    state.siteCards = { ...state.siteCards, [second]: 'site.plains' }
+    state.relicsBySite = { [first]: [{ slotId }] }
+    state.vault = testVaultWithRelics({ [slotId]: 'relic.cup-of-plenty' })
+    state.getPlayerState('att').peekedRelics = { [slotId]: 'relic.cup-of-plenty' }
+    const campaign = state.campaign
+    assertExists(campaign, 'The battle is fought mid-Campaign')
+    campaign.targets = [
+        { kind: CampaignTargetKind.Site, siteId: first },
+        { kind: CampaignTargetKind.Site, siteId: second },
+        { kind: CampaignTargetKind.SiteRelic, slotId }
+    ]
     return tableOf(state)
 }
 
@@ -2638,6 +2685,231 @@ function freeActionAskedTable(action: ActionType.Travel | ActionType.Campaign): 
     return tableOf(state)
 }
 
+/**
+ * R-11.7, Toll Roads — the Wood ruler's tables, with Cole also ruling the Great Slum, which holds
+ * Toll Roads, and Jacob holding 2 favor.
+ */
+function woodTollState(): HydratedOathGameState {
+    const state = shroudedWoodState(2, { onBoard: true })
+    const slum = mapSlotsFor(Region.Provinces)[1]
+    state.denizensBySite = { ...state.denizensBySite, [slum]: ['denizen.order.toll-roads'] }
+    state.warbandsBySite = { ...state.warbandsBySite, [slum]: { Cole: 1 } }
+    state.getPlayerState('Jacob').favor = 2
+    return state
+}
+
+/** Jacob has set out from Cole's Wood; Cole picks, the Great Slum marked with its toll. */
+function woodRulerTollTable(): PlayedTable {
+    const table = tableOf(woodTollState())
+    return played(table, [createAction(Travel, { ...envelope(table), playerId: 'Jacob' })])
+}
+
+/** Cole picked the Great Slum: Jacob is asked for the toll before paying any Supply. */
+function woodTollAskedTable(): PlayedTable {
+    const table = tableOf(woodTollState())
+    return played(table, [
+        createAction(Travel, { ...envelope(table), playerId: 'Jacob' }),
+        createAction(AnswerQuestion, {
+            ...envelope(table),
+            playerId: 'Cole',
+            answer: {
+                kind: PowerQuestionKind.ShroudedWoodDestination,
+                siteId: mapSlotsFor(Region.Provinces)[1]
+            }
+        })
+    ])
+}
+
+const BANDIT_CROWN = 'relic.bandit-crown'
+
+/** The empty Provinces site the Bandit Crown's tables enlarge, dealt the Great Slums. */
+const CROWN_SITE = mapSlotId(Region.Provinces, 1)
+
+type CrownScene = 'citizen' | 'chancellor' | 'exile' | 'campaign' | 'five'
+
+/**
+ * R-7.6.5 with R-6.6.3 — the Bandit Crown in a new game: Jacob the Chancellor, Ann a Citizen,
+ * Cole an Exile and the Exile Bea on the clock. The Empire's warbands hold the top Provinces
+ * site and Cole's the top Cradle site; every other site is empty. 'campaign': Ann, holding the
+ * Crown, has declared against Jacob (R-5.5.1.a suspends her). 'five': Bea, Dov and Wes are
+ * Citizens too, and Cole is on the clock.
+ */
+function banditCrownTable(scene: CrownScene): PlayedTable {
+    const holderId = {
+        citizen: 'ann',
+        chancellor: 'jacob',
+        exile: 'cole',
+        campaign: 'ann',
+        five: 'ann'
+    }[scene]
+    const crown = (playerId: string) => (playerId === holderId ? [BANDIT_CROWN] : [])
+    const citizen = (playerId: string, color: Color) =>
+        testPlayer({
+            playerId,
+            color,
+            status: PlayerStatus.Citizen,
+            siteId: mapSlotId(Region.Hinterland, 0),
+            relicIds: crown(playerId)
+        })
+    const plains = mapSlotId(Region.Provinces, 0)
+    const home = mapSlotId(Region.Cradle, 0)
+    const state = testState(
+        [
+            testPlayer({
+                playerId: 'jacob',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: plains,
+                relicIds: crown('jacob'),
+                warbandsOnBoard: { [IMPERIAL_WARBANDS]: 3 }
+            }),
+            citizen('ann', Color.Blue),
+            ...(scene === 'five'
+                ? [
+                      citizen('bea', Color.Yellow),
+                      citizen('dov', Color.Black),
+                      citizen('wes', Color.White)
+                  ]
+                : [
+                      testPlayer({
+                          playerId: 'bea',
+                          color: Color.Yellow,
+                          siteId: mapSlotId(Region.Cradle, 1)
+                      })
+                  ]),
+            testPlayer({
+                playerId: 'cole',
+                color: Color.Red,
+                siteId: home,
+                relicIds: crown('cole'),
+                warbandsOnBoard: { cole: 4 }
+            })
+        ],
+        {
+            oathRevision: CURRENT_OATH_REVISION,
+            machineState:
+                scene === 'campaign' ? MachineState.CampaignPlans : MachineState.ActPhase,
+            chancellorPlayerId: 'jacob',
+            map: allMapSlots(),
+            siteCards: { ...fixtureSitesOnTheBoard(), [CROWN_SITE]: 'site.great-slums' },
+            denizensBySite: { [CROWN_SITE]: [] },
+            warbandsBySite: { [plains]: { [IMPERIAL_WARBANDS]: 2 }, [home]: { cole: 1 } },
+            campaign:
+                scene === 'campaign'
+                    ? {
+                          attackerPlayerId: 'ann',
+                          defenderPlayerId: 'jacob',
+                          nonImperialPlayerIds: ['ann'],
+                          allyPlayerIds: [],
+                          targets: [{ kind: CampaignTargetKind.Site, siteId: plains }],
+                          attackPool: 2,
+                          defensePool: 2,
+                          attackRoll: [],
+                          defenseRoll: [],
+                          defense: 0,
+                          swords: 0,
+                          defendingForce: [
+                              {
+                                  at: { kind: 'site', siteId: plains },
+                                  owner: IMPERIAL_WARBANDS,
+                                  count: 2
+                              }
+                          ],
+                          defendingBandits: 0,
+                          pendingDefenderPlans: { queue: ['jacob'] },
+                          ...campaignRecords()
+                      }
+                    : undefined
+        }
+    )
+    const onTheClock = scene === 'campaign' ? 'jacob' : scene === 'five' ? 'cole' : 'bea'
+    openTurn(state, scene === 'campaign' ? 'ann' : onTheClock)
+    state.activePlayerIds = [onTheClock]
+    return tableOf(state)
+}
+
+const GREAT_SLUM = mapSlotId(Region.Provinces, 1)
+const RIVER = mapSlotId(Region.Provinces, 2)
+const WHISTLE = 'relic.whistle'
+const ORACLE = 'denizen.nomad.oracle'
+
+/**
+ * Toll Roads on a power's move: Cole (Exile) rules the Great Slum, which holds Toll Roads, Forced
+ * Labor and Oracle; Jacob (Chancellor) stands at the River.
+ */
+function tollTable(cole: Record<string, unknown>, jacob: Record<string, unknown>, turn: string) {
+    const state = testState(
+        [
+            testPlayer({
+                playerId: 'Jacob',
+                color: Color.Purple,
+                status: PlayerStatus.Chancellor,
+                siteId: RIVER,
+                supply: 3,
+                favor: 4,
+                secrets: 1,
+                warbandsOnBoard: { [IMPERIAL_WARBANDS]: 6 },
+                ...jacob
+            }),
+            testPlayer({
+                playerId: 'Cole',
+                color: Color.Red,
+                siteId: GREAT_SLUM,
+                supply: 3,
+                favor: 3,
+                secrets: 2,
+                warbandsOnBoard: { Cole: 9 },
+                ...cole
+            })
+        ],
+        {
+            machineState: MachineState.ActPhase,
+            chancellorPlayerId: 'Jacob',
+            oathkeeperPlayerId: 'Cole',
+            oathRevision: OathRevision.UiBatch1,
+            map: allMapSlots(),
+            siteCards: {
+                ...fixtureSitesOnTheBoard(),
+                [GREAT_SLUM]: 'site.great-slums',
+                [RIVER]: 'site.river'
+            },
+            denizensBySite: {
+                [GREAT_SLUM]: ['denizen.order.toll-roads', 'denizen.order.forced-labor', ORACLE],
+                [RIVER]: []
+            },
+            warbandsBySite: { [GREAT_SLUM]: { Cole: 2 } }
+        }
+    )
+    openTurn(state, turn)
+    state.activePlayerIds = [turn]
+    state.vault = testVaultWithRelics({})
+    return state
+}
+
+/** Cole has used the Whistle on Jacob, who is asked to pay Toll Roads or refuse. */
+function tollAskedTable(): PlayedTable {
+    const table = tableOf(tollTable({ relicIds: [WHISTLE] }, {}, 'Cole'))
+    return played(table, [
+        createAction(UseActionPower, {
+            ...envelope(table),
+            playerId: 'Cole',
+            cardId: WHISTLE,
+            powerIndex: powerIndexOf(WHISTLE, PowerTiming.Action),
+            choices: [{ kind: PowerChoiceKind.Player, playerId: 'Jacob' }]
+        })
+    ])
+}
+
+/** Jacob's Act Phase at the Great Slum: Oracle's draw owes Forced Labor's toll to Cole. */
+function oracleTable(favor: number): PlayedTable {
+    const state = tollTable(
+        { siteId: RIVER },
+        { siteId: GREAT_SLUM, favor, secrets: 2, relicIds: favor > 0 ? [] : [WHISTLE] },
+        'Jacob'
+    )
+    return tableOf(state)
+}
+
 const TABLES: Record<TableName, () => PlayedTable> = {
     campaignLossOrder: () => campaignTable(true, true),
     skullLosses: () => forceInPlacesTable('skulls', 1),
@@ -2645,6 +2917,11 @@ const TABLES: Record<TableName, () => PlayedTable> = {
     sacrificeInTwoPlaces: () => forceInPlacesTable('sacrifice', 1),
     freeTravelAsked: () => freeActionAskedTable(ActionType.Travel),
     freeCampaignAsked: () => freeActionAskedTable(ActionType.Campaign),
+    banditCrown: () => banditCrownTable('citizen'),
+    banditCrownChancellor: () => banditCrownTable('chancellor'),
+    banditCrownExile: () => banditCrownTable('exile'),
+    banditCrownCampaign: () => banditCrownTable('campaign'),
+    banditCrownFive: () => banditCrownTable('five'),
     warbandGiveAsked: warbandGiveAskedTable,
     offerCitizenship: () => offerCitizenshipTable('two'),
     offerCitizenshipToOne: () => offerCitizenshipTable('one'),
@@ -2720,13 +2997,19 @@ const TABLES: Record<TableName, () => PlayedTable> = {
     sacrificeMixed: () => battleTable('sacrificeMixed'),
     wonOutright: () => battleTable('wonOutright'),
     spoils: () => battleTable('spoils'),
+    spoilsRelicHunter: spoilsRelicHunterTable,
     ...QUESTION_TABLES,
     oathkeeperTie: oathkeeperTieTable,
     tavernSongs: tavernSongsTable,
     usurperWins: usurperWinsTable,
     deedWriter: deedWriterTable,
     woodTraveller: () => tableOf(shroudedWoodState(2, { onBoard: true })),
-    woodRuler: woodRulerTable
+    woodRuler: woodRulerTable,
+    woodRulerToll: woodRulerTollTable,
+    woodTollAsked: woodTollAskedTable,
+    tollAsked: tollAskedTable,
+    oracleToll: () => oracleTable(4),
+    oracleNoFavor: () => oracleTable(0)
 }
 
 /** Every table a scenario can open. */
