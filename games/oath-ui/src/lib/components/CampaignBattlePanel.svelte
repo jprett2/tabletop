@@ -5,9 +5,11 @@
     import { CardKind, MachineState, type WarbandGroup } from '@tabletop/oath'
     import CardChoiceRow from '$lib/components/CardChoiceRow.svelte'
     import CountPicker from '$lib/components/CountPicker.svelte'
+    import TokenRow from '$lib/components/TokenRow.svelte'
+    import { warbandFigure } from '$lib/images/pieceImages.js'
     import WaitingOn from '$lib/components/WaitingOn.svelte'
     import { getGameSession } from '$lib/model/sessionContext.svelte.js'
-    import { cardName, siteName, relicSiteName } from '$lib/model/names.js'
+    import { cardName, ownForcePlaceName, siteName, relicSiteName } from '$lib/model/names.js'
     import { spoilsSummary } from '$lib/model/spoils.js'
     import { ChoiceWidth } from '$lib/model/choiceWidth.svelte.js'
 
@@ -49,6 +51,9 @@
             ? `on ${gameSession.getPlayerName(group.at.playerId)}'s board`
             : `at ${siteName(gameState, group.at.siteId)}`
     }
+
+    // R-5.5.5 — from revision 7 the attacker picks where the skulls kill, after the roll.
+    let skullLosses = $derived(gameSession.skullLosses)
 
     let winRefusedBecause = $derived(losses.winRefusedBecause)
     let loseRefusedBecause = $derived(losses.loseRefusedBecause)
@@ -121,6 +126,51 @@
         {/if}
     {:else if !isAttacker}
         <WaitingOn />
+    {:else if gameState.machineState === MachineState.CampaignSkullLosses}
+        <p class="text-sm mb-2">Skulls: pick {skullLosses.required} to kill.</p>
+        <div class="mb-2 border-t border-oath-divider pt-1.5 text-xs">
+            <div
+                class="mb-1 grid w-max max-w-full grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1"
+            >
+                {#each skullLosses.groups as group, index (JSON.stringify(group.at) + group.owner)}
+                    {@const where = ownForcePlaceName(
+                        gameState,
+                        group,
+                        skullLosses.groups,
+                        (owner) => gameSession.warbandOwnerName(owner)
+                    )}
+                    <span>{where}</span>
+                    <TokenRow
+                        image={warbandFigure(gameSession.warbandColor(group.owner))}
+                        held={group.count}
+                        addable={group.count}
+                        picked={skullLosses.picked[index] ?? 0}
+                        label={(n) => `kill ${n} ${where}`}
+                        ontap={(n) => skullLosses.tap(index, n)}
+                        {busy}
+                        tone="rose"
+                    />
+                {/each}
+            </div>
+            <div class="text-oath-text-muted">
+                Chosen {skullLosses.pickedTotal} of {skullLosses.required}
+            </div>
+        </div>
+        <!-- Kill waits for the count; a refusal of a complete pick takes its place. -->
+        {#if skullLosses.refusedBecause}
+            <p class="mb-2 text-[11px] text-oath-danger">
+                <TokenText text={gameSession.humanizeReason(skullLosses.refusedBecause) ?? ''} />
+            </p>
+        {:else if skullLosses.complete}
+            <button
+                class="rounded bg-oath-danger-soft border border-oath-danger/60 text-oath-text hover:border-oath-danger disabled:opacity-40
+                       px-3 py-1.5 text-sm font-semibold max-sm:min-h-11"
+                disabled={busy}
+                onclick={() => skullLosses.kill()}
+            >
+                Kill
+            </button>
+        {/if}
     {:else if gameState.machineState === MachineState.CampaignSacrifice}
         <!-- With nothing to sacrifice, the outcome is all there is to say. -->
         {#if needed === 0}

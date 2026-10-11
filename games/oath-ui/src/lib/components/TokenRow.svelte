@@ -1,30 +1,37 @@
 <script lang="ts">
     import { range } from '@tabletop/common'
-    import { favorToken, secretToken } from '$lib/images/tileImages.js'
+    import type { SizedImage } from '$lib/images/manifestIndex.js'
 
-    // R-6.6.1 — a side's favor or secrets in an offer's terms: one token per unit it holds. A tap
-    // on the Nth token sets the count to N and rings the tokens up to it; a tap on the token at the
-    // count sets 0. A token the rules do not let the side add cannot be tapped and keeps its place.
+    // A count picked from the pieces themselves (favor, secrets, warbands), one per unit held. A
+    // tap on the Nth piece sets the count to N and rings the pieces up to it; a tap on the piece at
+    // the count sets 0. A piece the rules do not let the count reach cannot be tapped and keeps its
+    // place. The ring is gold for pieces placed, given or moved, rose for pieces that die or burn.
     // 34 x 32 px, 44 px square on a phone.
     let {
-        token,
+        image,
         held,
         addable,
         picked,
         label,
         ontap,
-        busy
+        busy,
+        tone = 'gold'
     }: {
-        token: 'favor' | 'secrets'
+        image: SizedImage
         held: number
         addable: number
         picked: number
         label: (count: number) => string
         ontap: (count: number) => void
         busy: boolean
+        tone?: 'gold' | 'rose'
     } = $props()
 
-    let image = $derived(token === 'favor' ? favorToken() : secretToken())
+    let ring = $derived(
+        tone === 'rose'
+            ? 'border-oath-danger bg-oath-danger-soft ring-1 ring-oath-danger'
+            : 'border-oath-accent bg-oath-accent-soft ring-1 ring-oath-accent'
+    )
 </script>
 
 <span class="inline-flex flex-wrap items-center gap-1">
@@ -34,7 +41,7 @@
             type="button"
             class="inline-flex h-8 w-[34px] flex-none items-center justify-center rounded-md border
                    disabled:opacity-40 max-sm:h-11 max-sm:w-11 {on
-                ? 'border-oath-accent bg-oath-accent-soft ring-1 ring-oath-accent'
+                ? ring
                 : 'border-oath-frame bg-oath-surface'}"
             aria-pressed={on}
             aria-label={label(count)}
