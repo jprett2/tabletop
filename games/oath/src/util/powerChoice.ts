@@ -30,6 +30,13 @@ export interface ChoiceSpec {
     sequential?: true
     what?: string
     allows?: ExchangeAllowance
+    /**
+     * Warbands: the specs of this kind and domain name this many warbands together, or every one
+     * the domain holds when it holds fewer (Terror Spells' "two"). The effect's own check reads it.
+     */
+    together?: number
+    /** Warbands: the count goes in multiples of it (Blood Pact's "an even number"). */
+    step?: number
 }
 
 export function exchangeAllowanceOf(spec: ChoiceSpec): ExchangeAllowance {
