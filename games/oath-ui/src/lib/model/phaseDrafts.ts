@@ -58,6 +58,15 @@ import {
     type PowerChoicePicks
 } from './powerChoices.js'
 import { samePowerUse } from './powerUse.js'
+import { pickerWords } from './powerPickerWords.js'
+import {
+    openOnMap,
+    sitesOnMap,
+    powerSiteRows,
+    withMapTap,
+    type PowerMapSite,
+    type PowerSiteRow
+} from './powerSites.js'
 import {
     isPowerMoves,
     moveChoices,
@@ -435,6 +444,8 @@ const PALANQUIN = 'denizen.order.palanquin'
 export class ActionPowersDraft extends OneStepDraft<Record<string, PowerChoicePicks>> {
     // The power whose moves were picked last: Undo takes its picks back one at a time.
     private movesPicked: string | undefined
+    // The picks before each tap, the last last: Undo takes back one tap, a pick or a site.
+    private taps: Record<string, PowerChoicePicks>[] = []
 
     private get playerId(): string | undefined {
         return this.session.selection.action === ActionType.UseActionPower
@@ -448,8 +459,27 @@ export class ActionPowersDraft extends OneStepDraft<Record<string, PowerChoicePi
             : []
     }
 
-    picksOf(use: PowerUseKey): PowerChoicePicks {
+    private storedOf(use: PowerUseKey): PowerChoicePicks {
         return this.stored?.[powerKey(use.cardId, use.powerIndex)] ?? emptyPicks()
+    }
+
+    /** A power whose site is picked on the lit map: its rows, and its picks as they read back. */
+    private sitesOf(
+        power: LegalPowerUse
+    ): { rows: PowerSiteRow[]; picks: PowerChoicePicks } | undefined {
+        const playerId = this.playerId
+        const stored = this.storedOf(power)
+        if (!playerId || pickerWords(power.cardId).site === undefined) return undefined
+        return powerSiteRows(this.session.gameState, playerId, power, stored)
+    }
+
+    /**
+     * The power's picks; a site on the map is read back only while the engine accepts it with
+     * the other picks, and a required site with one legal value starts made.
+     */
+    picksOf(use: PowerUseKey | LegalPowerUse): PowerChoicePicks {
+        const power = 'choices' in use ? use : this.powers.find((p) => samePowerUse(p, use))
+        return (power && this.sitesOf(power)?.picks) ?? this.storedOf(use)
     }
 
     setPicks(use: PowerUseKey, picks: PowerChoicePicks): void {
@@ -457,7 +487,62 @@ export class ActionPowersDraft extends OneStepDraft<Record<string, PowerChoicePi
             return
         }
         this.movesPicked = undefined
-        this.store({ ...this.stored, [powerKey(use.cardId, use.powerIndex)]: picks })
+        this.tap({ ...this.stored, [powerKey(use.cardId, use.powerIndex)]: picks })
+    }
+
+    // A tap that changes nothing is no pick.
+    private tap(next: Record<string, PowerChoicePicks>): void {
+        const before = this.stored ?? {}
+        if (JSON.stringify(before) === JSON.stringify(next)) return
+        this.taps.push(before)
+        this.store(next)
+    }
+
+    /** The row a power's site spec draws, when it is picked on the map. */
+    siteRow(power: LegalPowerUse, spec: number): PowerSiteRow | undefined {
+        return this.sitesOf(power)?.rows.find((row) => row.spec === spec)
+    }
+
+    private get openSiteRows(): { power: LegalPowerUse; rows: PowerSiteRow[]; words: string }[] {
+        return this.powers.flatMap((power) => {
+            const words = pickerWords(power.cardId).site?.chip
+            const sites = this.movesOf(power) ? undefined : this.sitesOf(power)
+            return words && sites ? [{ power, rows: sites.rows, words }] : []
+        })
+    }
+
+    /**
+     * One map pick for the panel: every site an open row can take, each naming the rows a tap
+     * there fills, and the one site the open rows hold.
+     */
+    get mapSites(): (PowerMapSite & { picked: boolean })[] {
+        const open = this.openSiteRows
+        const ringed = open
+            .flatMap(({ rows }) => rows.filter(openOnMap))
+            .find((row) => row.picked !== undefined)?.picked
+        return sitesOnMap(
+            open.flatMap(({ rows, words }) => rows.map((row) => ({ row, words })))
+        ).map((site) => ({ ...site, picked: site.siteId === ringed }))
+    }
+
+    /** A tap on a lit site: every open row offering it takes it, and every other lets its site go. */
+    pickSite(siteId: string): void {
+        const open = this.openSiteRows
+        if (
+            !open.some(({ rows }) =>
+                rows.some((row) => openOnMap(row) && row.sites.includes(siteId))
+            )
+        ) {
+            return
+        }
+        const next = { ...this.stored }
+        for (const { power, rows } of open) {
+            const before = this.picksOf(power)
+            const after = withMapTap(power, rows, before, siteId)
+            if (after !== before) next[powerKey(power.cardId, power.powerIndex)] = after
+        }
+        this.movesPicked = undefined
+        this.tap(next)
     }
 
     /** Messenger's moves, one at a time, each read on the state the moves before it leave. */
@@ -468,8 +553,15 @@ export class ActionPowersDraft extends OneStepDraft<Record<string, PowerChoicePi
         return powerMoves(this.session.gameState, playerId, printed, this.picksOf(power).moves)
     }
 
+    // Messenger's moves keep their own Undo, one part of a move at a time.
     setMoves(use: PowerUseKey, moves: MovePick[]): void {
-        this.setPicks(use, { ...this.picksOf(use), moves })
+        if (!this.powers.some((p) => samePowerUse(p, use))) {
+            return
+        }
+        this.store({
+            ...this.stored,
+            [powerKey(use.cardId, use.powerIndex)]: { ...this.storedOf(use), moves }
+        })
         this.movesPicked = powerKey(use.cardId, use.powerIndex)
     }
 
@@ -522,18 +614,37 @@ export class ActionPowersDraft extends OneStepDraft<Record<string, PowerChoicePi
         await this.session.useActionPower(power.cardId, power.powerIndex, this.choicesFor(power))
     }
 
-    /** Undo takes back the last move pick when moves were picked last; otherwise it clears the picks. */
+    /**
+     * Undo takes back the last move pick when moves were picked last; otherwise the last tap, a
+     * pick or a site on the map, and the picks are as they were before it.
+     */
     override back(): boolean {
         const key = this.movesPicked
         const picks = key === undefined ? undefined : this.stored?.[key]
         if (key === undefined || picks === undefined || picks.moves.length === 0) {
-            return super.back()
+            return this.backOneTap()
         }
         const moves = withoutLastPick(picks.moves)
         const rest = { ...this.stored, [key]: { ...picks, moves } }
         if (Object.values(rest).some(hasPicks)) this.store(rest)
-        else super.back()
+        else this.reset()
         return true
+    }
+
+    private backOneTap(): boolean {
+        const before = this.taps.pop()
+        if (before === undefined || !Object.values(before).some(hasPicks)) {
+            this.taps = []
+            return super.back()
+        }
+        this.store(before)
+        return true
+    }
+
+    override reset(): void {
+        this.taps = []
+        this.movesPicked = undefined
+        super.reset()
     }
 }
 

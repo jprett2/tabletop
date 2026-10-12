@@ -365,11 +365,16 @@ describe('the Action powers draft (docs/user-interactions.md)', () => {
         expect(draft.picksOf(SNARE_USE)).toEqual(ticked)
     })
 
-    it('Undo clears every power’s picks at once', () => {
+    it('Undo takes back the last tap, then the one before, whichever power it was for', () => {
         const draft = using()
         draft.setPicks(INN_USE, ticked)
+        draft.setPicks(SNARE_USE, ticked)
+        expect(draft.back()).toBe(true)
+        expect(draft.picksOf(SNARE_USE)).toEqual(emptyPicks())
+        expect(draft.picksOf(INN_USE)).toEqual(ticked)
         expect(draft.back()).toBe(true)
         expect(draft.picksOf(INN_USE)).toEqual(emptyPicks())
+        expect(draft.hasManualSelection()).toBe(false)
         expect(draft.back()).toBe(false)
     })
 
