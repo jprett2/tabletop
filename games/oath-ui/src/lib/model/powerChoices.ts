@@ -15,12 +15,22 @@ export type PowerChoicePicks = {
     terms: Record<number, ExchangePicks>
     several: Record<number, number[]>
     severalCount: Record<string, number>
-    /** A power's moves (Messenger), each keyed by the place, owner and site picked. */
+    /** A power's moves (Messenger, Warning Signals), each keyed by the place, owner and site picked. */
     moves: MovePick[]
 }
 
 export function emptyPicks(): PowerChoicePicks {
     return { option: {}, count: {}, terms: {}, several: {}, severalCount: {}, moves: [] }
+}
+
+/** Anything picked at all: Undo past the last pick leaves the picks. */
+export function hasPicks(picks: PowerChoicePicks): boolean {
+    return (
+        picks.moves.length > 0 ||
+        [picks.option, picks.count, picks.terms, picks.several, picks.severalCount].some(
+            (record) => Object.keys(record).length > 0
+        )
+    )
 }
 
 export const NO_OPTION = -1
