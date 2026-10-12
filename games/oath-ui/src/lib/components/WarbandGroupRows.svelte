@@ -20,7 +20,8 @@
         tone,
         per = 1,
         toward = false,
-        ownerWord = new Set(groups.map((group) => group.owner)).size > 1
+        ownerWord = new Set(groups.map((group) => group.owner)).size > 1,
+        lead
     }: {
         groups: readonly WarbandGroup[]
         /** The rows' order, by index in `groups`; `counts` and the callbacks keep those indices. */
@@ -35,6 +36,8 @@
         toward?: boolean
         /** A row names its owner; by default when the groups mix owners (a battle's force). */
         ownerWord?: boolean
+        /** A power's words, beside the pieces in the place's stead, where its text names the place. */
+        lead?: string
     } = $props()
 
     let gameSession = getGameSession()
@@ -65,7 +68,9 @@
         {@const count = counts[index] ?? 0}
         {@const owner = ownerWord ? `${gameSession.warbandOwnerName(group.owner)} ` : ''}
         <span>
-            {#if group.at.kind === 'board' && !isMine(group.at.playerId)}
+            {#if lead !== undefined}
+                {lead}
+            {:else if group.at.kind === 'board' && !isMine(group.at.playerId)}
                 {owner}{onBoard}
                 <PlayerName playerId={group.at.playerId} possessive /> board
             {:else}
